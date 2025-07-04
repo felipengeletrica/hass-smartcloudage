@@ -1,0 +1,43 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VSCode configs
+.vscode/
+
+# macOS files
+.DS_Store
+
+# PyCharm configs
+.idea/
+
+# System files
+Thumbs.db
+ehthumbs.db
+
+# Build / dist
+*.egg-info/
+dist/
+build/
+
+# HACS integration artifacts
+smartcloudage.egg-info/
+
+# Home Assistant
+home-assistant.log
+home-assistant_v2.db
+*.db-shm
+*.db-wal
+
+# Virtual environments
+.env/
+.venv/
+venv/
+ENV/
+
+# MQTT logs or configs (if dumped)
+*.log
+*.bak
+*.conf

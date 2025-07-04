@@ -1,0 +1,9 @@
+{
+  "domain": "smartcloudage",
+  "name": "SmartCloudAge MQTT Integration",
+  "version": "1.0.0",
+  "documentation": "https://github.com/felipengeletrica/hass-smartcloudage",
+  "requirements": [],
+  "dependencies": ["mqtt"],
+  "codeowners": ["@felipengeletrica"]
+}

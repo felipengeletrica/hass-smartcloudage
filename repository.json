@@ -1,0 +1,10 @@
+{
+  "name": "SmartCloudAge MQTT Integration",
+  "content_in_root": false,
+  "domain": "smartcloudage",
+  "documentation": "https://github.com/felipengeletrica/hass-smartcloudage",
+  "source": "https://github.com/felipengeletrica/hass-smartcloudage",
+  "manifest": "custom_components/smartcloudage/manifest.json",
+  "version": "1.0.0",
+  "requirements": []
+}
