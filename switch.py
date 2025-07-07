@@ -1,78 +1,45 @@
-# outputs.py
-
 import logging
-import voluptuous as vol
-
+import json
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import CONF_NAME
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers import config_validation as cv
 from homeassistant.components import mqtt
 
 _LOGGER = logging.getLogger(__name__)
 
-DEFAULT_NAME = "SmartCloudAge Output"
 DOMAIN = "smartcloudage"
-
-CONF_DEVICES = "devices"
-CONF_DEVICE_ID = "device_id"
-CONF_OUTPUTS = "outputs"
-
+DEFAULT_NAME = "SmartCloudAge Output"
 HARDCODED_TOPIC_PREFIX = "CloudAge/"
 
-DEVICE_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_DEVICE_ID): cv.string,
-        vol.Optional(CONF_OUTPUTS, default=16): vol.All(int, vol.Range(min=1, max=16)),
-    }
-)
-
-CONFIG_SCHEMA = vol.Schema(
-    {
-        DOMAIN: vol.Schema(
-            {
-                vol.Required(CONF_DEVICES): vol.All(cv.ensure_list, [DEVICE_SCHEMA])
-            }
-        )
-    },
-    extra=vol.ALLOW_EXTRA,
-)
-
-async def async_setup(hass, config):
-    conf = config[DOMAIN][CONF_DEVICES]
-    devices = []
-
-    for device_conf in conf:
-        device_id = device_conf[CONF_DEVICE_ID]
-        outputs = device_conf[CONF_OUTPUTS]
-
+async def async_setup_entry(hass, entry, async_add_entities):
+    # Carrega devices do campo JSON
+    try:
+        devices = json.loads(entry.data.get("devices_json", "[]"))
+    except Exception as e:
+        _LOGGER.error(f"Erro ao carregar devices_json: {e}")
+        devices = []
+    entities = []
+    for device_conf in devices:
+        device_id = device_conf.get("device_id")
+        outputs = device_conf.get("outputs", 16)
         for output_id in range(outputs):
-            devices.append(
+            entities.append(
                 SmartCloudOutputSwitch(
-                    name=f"{DEFAULT_NAME} {device_id} Output {output_id}",
+                    name=f"{DEFAULT_NAME} {device_id} Output {output_id+1}",
                     output_id=output_id,
                     base_topic=HARDCODED_TOPIC_PREFIX,
                     device_id=device_id,
                 )
             )
-
-    async_add_entities = hass.helpers.entity_platform.async_add_entities
-    async_add_entities(devices, update_before_add=False)
-
-    return True
+    async_add_entities(entities)
 
 class SmartCloudOutputSwitch(SwitchEntity):
     def __init__(self, name, output_id, base_topic, device_id):
-        self._name = name
+        self._attr_name = name
         self._state = False
         self._output_id = output_id
         self._device_id = device_id
         self._base_topic = base_topic
         self._attr_entity_category = EntityCategory.CONFIG
-
-    @property
-    def name(self):
-        return self._name
 
     @property
     def is_on(self):
@@ -99,9 +66,7 @@ class SmartCloudOutputSwitch(SwitchEntity):
                 "value": value
             }
         }
-
         _LOGGER.debug("Publishing to %s: %s", topic, payload)
-
         await mqtt.async_publish(
             self.hass,
             topic,
