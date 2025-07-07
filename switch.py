@@ -70,7 +70,7 @@ class SmartCloudOutputSwitch(SwitchEntity):
         await mqtt.async_publish(
             self.hass,
             topic,
-            self.hass.helpers.json.dumps(payload),
+            json.dumps(payload),
             0,
             False
         )
