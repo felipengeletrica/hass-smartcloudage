@@ -27,7 +27,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         for output_id in range(outputs):
             entity = SmartCloudOutputSwitch(
                 hass=hass,
-                name=f"{DEFAULT_NAME} {device_id} Output {output_id+1}",
+                name=f"{DEFAULT_NAME} {device_id} Output {output_id + 1}",
                 output_id=output_id,
                 base_topic=HARDCODED_TOPIC_PREFIX,
                 device_id=device_id,
@@ -36,11 +36,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
             entities_by_device[device_id].append(entity)
     async_add_entities(entities)
 
-    # Assina todos os tópicos de status
+    # Subscribe UMA VEZ por device, não por entidade!
     async def message_received(msg):
         try:
-            # Descobre o device_id pelo tópico recebido!
-            # Exemplo: CloudAge/MTQ0Y...SA6=/OutTopic/
             topic_parts = msg.topic.split("/")
             if len(topic_parts) < 3:
                 return
@@ -55,7 +53,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
         except Exception as e:
             _LOGGER.error(f"Erro processando mensagem MQTT: {e}")
 
-    await mqtt.async_subscribe(hass, "CloudAge/+/OutTopic/", message_received, 0)
+    # Inscreve apenas nos devices relevantes:
+    for device_id in entities_by_device.keys():
+        topic = f"{HARDCODED_TOPIC_PREFIX}{device_id}/OutTopic/"
+        await mqtt.async_subscribe(hass, topic, message_received, 0)
 
 class SmartCloudOutputSwitch(SwitchEntity):
     def __init__(self, hass, name, output_id, base_topic, device_id):
@@ -82,14 +83,14 @@ class SmartCloudOutputSwitch(SwitchEntity):
         self.async_write_ha_state()
 
     async def _publish_mqtt(self, value):
-        # Ajuste para publicar no tópico correto de comando (verifique se precisa OutTopic ou outro)
-        topic = f"{self._base_topic}{self._device_id}/InTopic/"
+        # Agora envia para o InTopic individual
+        topic = f"{self._base_topic}{self._device_id}"
         payload = {
             "command": 11,
             "type": 1,
             "signature": self._device_id,
             "payload": {
-                "id": self._output_id,
+                "id": self._output_id + 1,
                 "value": value
             }
         }
