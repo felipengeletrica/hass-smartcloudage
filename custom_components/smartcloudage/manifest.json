@@ -3,6 +3,7 @@
   "name": "SmartCloudAge MQTT Integration",
   "version": "1.0.0",
   "documentation": "https://github.com/felipengeletrica/hass-smartcloudage",
+  "config_flow": true,
   "requirements": [],
   "dependencies": ["mqtt"],
   "codeowners": ["@felipengeletrica"]
