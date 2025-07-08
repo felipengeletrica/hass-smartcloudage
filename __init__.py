@@ -37,7 +37,6 @@ async def async_setup_entry(hass, entry):
 
 
     async def send_datetime_to_devices(_now):
-        _LOGGER.warning(f"Enviando data/hora para dispositivos: {[d['device_id'] for d in devices]}")
         for device in devices:
             device_id = device.get("device_id")
             signature = device.get("signature", device_id)
