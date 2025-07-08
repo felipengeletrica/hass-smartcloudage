@@ -31,7 +31,10 @@ def build_datetime_payload(device_id, signature=None):
 async def async_setup_entry(hass, entry):
     await hass.config_entries.async_forward_entry_setups(entry, ["switch"])
 
-    devices = json.loads(entry.data.get("devices_json", "[]"))
+    devices = entry.options.get("devices")
+    if devices is None:
+        devices = entry.data.get("devices", [])
+
 
     async def send_datetime_to_devices(_now):
         _LOGGER.warning(f"Enviando data/hora para dispositivos: {[d['device_id'] for d in devices]}")
