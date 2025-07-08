@@ -1,30 +1,31 @@
-import voluptuous as vol
 from homeassistant import config_entries
+import voluptuous as vol
 
-class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain="smartcloudage"):
+DOMAIN = "smartcloudage"
+
+class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Fluxo de configuração inicial do SmartCloudAge."""
+
     async def async_step_user(self, user_input=None):
-        errors = {}
         if user_input is not None:
-            # Tenta validar o JSON
-            import json
-            try:
-                devices = json.loads(user_input["devices_json"])
-                assert isinstance(devices, list)
-                for item in devices:
-                    assert "device_id" in item and "outputs" in item
-                return self.async_create_entry(
-                    title="SmartCloudAge",
-                    data={"devices_json": user_input["devices_json"]}
-                )
-            except Exception as e:
-                errors["devices_json"] = "invalid_json"
+            # Salva um device inicial, podendo adicionar depois pelo options
+            return self.async_create_entry(
+                title="SmartCloudAge",
+                data={
+                    "devices": [
+                        {
+                            "device_id": user_input["device_id"],
+                            "outputs": user_input["outputs"],
+                            "alias": user_input.get("alias", user_input["device_id"])
+                        }
+                    ]
+                }
+            )
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
-                vol.Required(
-                    "devices_json", 
-                    default='[\n  {"device_id": "device01", "outputs": 4}\n]'
-                ): str
-            }),
-            errors=errors
+                vol.Required("device_id"): str,
+                vol.Required("outputs", default=4): vol.All(int, vol.Range(min=1, max=16)),
+                vol.Optional("alias"): str,
+            })
         )

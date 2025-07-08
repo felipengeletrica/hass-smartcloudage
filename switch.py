@@ -11,32 +11,42 @@ DEFAULT_NAME = "SmartCloudAge Output"
 HARDCODED_TOPIC_PREFIX = "CloudAge/"
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    # Carrega devices do campo JSON
     try:
-        devices = json.loads(entry.data.get("devices_json", "[]"))
+        devices = entry.options.get("devices")
+        if devices is None:
+            devices = entry.data.get("devices", [])
+
     except Exception as e:
-        _LOGGER.error(f"Erro ao carregar devices_json: {e}")
+        _LOGGER.error(f"Erro ao carregar devices: {e}")
         devices = []
     entities = []
     entities_by_device = {}
+    entities_by_alias = {}
 
     for device_conf in devices:
         device_id = device_conf.get("device_id")
+        alias = device_conf.get("alias") or device_id  # Usa alias se existir
         outputs = device_conf.get("outputs", 16)
         entities_by_device.setdefault(device_id, [])
+        entities_by_alias.setdefault(alias, [])
         for output_id in range(outputs):
             entity = SmartCloudOutputSwitch(
                 hass=hass,
-                name=f"{DEFAULT_NAME} {device_id} Output {output_id + 1}",
+                name=f"{alias} Output {output_id + 1}",
                 output_id=output_id,
                 base_topic=HARDCODED_TOPIC_PREFIX,
                 device_id=device_id,
+                alias=alias,
             )
             entities.append(entity)
             entities_by_device[device_id].append(entity)
+            entities_by_alias[alias].append(entity)
     async_add_entities(entities)
 
-    # Subscribe UMA VEZ por device, não por entidade!
+    # Exemplo: listar aliases (pode usar para log ou debug)
+    _LOGGER.info(f"Aliases cadastrados: {list(entities_by_alias.keys())}")
+
+    # Assina tópicos de status uma vez por device_id
     async def message_received(msg):
         try:
             topic_parts = msg.topic.split("/")
@@ -53,18 +63,18 @@ async def async_setup_entry(hass, entry, async_add_entities):
         except Exception as e:
             _LOGGER.error(f"Erro processando mensagem MQTT: {e}")
 
-    # Inscreve apenas nos devices relevantes:
     for device_id in entities_by_device.keys():
         topic = f"{HARDCODED_TOPIC_PREFIX}{device_id}/OutTopic/"
         await mqtt.async_subscribe(hass, topic, message_received, 0)
 
 class SmartCloudOutputSwitch(SwitchEntity):
-    def __init__(self, hass, name, output_id, base_topic, device_id):
+    def __init__(self, hass, name, output_id, base_topic, device_id, alias=None):
         self.hass = hass
         self._attr_name = name
         self._state = False
         self._output_id = output_id
         self._device_id = device_id
+        self._alias = alias or device_id
         self._base_topic = base_topic
         self._attr_entity_category = EntityCategory.CONFIG
 
@@ -83,7 +93,7 @@ class SmartCloudOutputSwitch(SwitchEntity):
         self.async_write_ha_state()
 
     async def _publish_mqtt(self, value):
-        # Agora envia para o InTopic individual
+        # Publica para topic: CloudAge/<device_id>
         topic = f"{self._base_topic}{self._device_id}"
         payload = {
             "command": 11,
@@ -105,13 +115,14 @@ class SmartCloudOutputSwitch(SwitchEntity):
 
     @property
     def unique_id(self):
-        return f"smartcloudage_output_{self._device_id}_{self._output_id}"
+        # Use alias no unique_id para fácil identificação
+        return f"smartcloudage_output_{self._alias}_{self._output_id + 1}"
 
     @property
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._device_id)},
-            "name": f"SmartCloudAge Device {self._device_id}",
+            "name": f"SmartCloudAge {self._alias}",
             "manufacturer": "SmartCloudAge",
             "model": "MQTT Controller"
         }
