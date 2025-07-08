@@ -5,7 +5,9 @@ import json
 import logging
 
 DOMAIN = "smartcloudage"
-SYNC_RTC_INTERVAL = 1
+SYNC_RTC_INTERVAL = 5
+CONFIG_DATE_TIME_ENUM = 9
+WRITE = 1
 _LOGGER = logging.getLogger(__name__)
 
 def build_datetime_payload(device_id, signature=None):
@@ -13,7 +15,7 @@ def build_datetime_payload(device_id, signature=None):
     if not signature:
         signature = device_id
     return {
-        "command": 9,  # CONFIG_DATE_TIME_ENUM
+        "command": CONFIG_DATE_TIME_ENUM,
         "payload": {
             "datetime": {
                 "day": now.day,
@@ -24,7 +26,7 @@ def build_datetime_payload(device_id, signature=None):
                 "sec": now.second,
             }
         },
-        "type": 1,  # WRITE
+        "type": WRITE,
         "signature": signature,
     }
 
@@ -51,12 +53,12 @@ async def async_setup_entry(hass, entry):
             False
         )
 
-    # Registra o scheduler para rodar a cada minuto
+    # Register schedule
     async_track_time_interval(
         hass, send_datetime_to_devices, timedelta(minutes=SYNC_RTC_INTERVAL)
     )
 
-    # Opcional: dispara uma vez na inicialização (para testar)
+    # First send trigger
     hass.async_create_task(send_datetime_to_devices(None))
 
     return True
