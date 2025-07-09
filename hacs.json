@@ -1,0 +1,6 @@
+{
+  "name": "SmartCloudAge MQTT",
+  "content_in_root": false,
+  "domain": "smartcloudage",
+  "homeassistant": "2023.5.0"
+}
