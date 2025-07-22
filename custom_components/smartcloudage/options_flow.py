@@ -8,10 +8,10 @@ def build_devices_schema(devices=None):
     schema_dict = {}
     for i, dev in enumerate(devices):
         schema_dict[vol.Required(f"device_id_{i}", default=dev["device_id"])] = str
-        schema_dict[vol.Required(f"outputs_{i}", default=dev.get("outputs", 4))] = vol.All(int, vol.Range(min=1, max=16))
+        schema_dict[vol.Required(f"outputs_{i}", default=dev.get("outputs", 10))] = vol.In([10, 16])
         schema_dict[vol.Required(f"alias_{i}", default=dev.get("alias", f"Device {i+1}"))] = str
     schema_dict[vol.Optional("new_device_id")] = str
-    schema_dict[vol.Optional("new_outputs", default=4)] = vol.All(int, vol.Range(min=1, max=16))
+    schema_dict[vol.Optional("new_outputs", default=10)] = vol.In([10, 16])
     schema_dict[vol.Optional("new_alias")] = str
     return vol.Schema(schema_dict)
 
