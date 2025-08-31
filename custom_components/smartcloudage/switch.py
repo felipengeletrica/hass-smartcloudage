@@ -54,7 +54,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 return
             device_id = topic_parts[1]
             data = json.loads(msg.payload)
-            if data.get("message") in ("OUTPUT_STATUS", "KeepAlive"):
+            if data.get("message") in ("OUTPUT_STATUS", "KeepAlive", "INPUT_STATUS"):
                 output_section = data.get("Output")
                 outputs = output_section.get("Outputs") if output_section else None
                 if outputs is not None and device_id in entities_by_device:
