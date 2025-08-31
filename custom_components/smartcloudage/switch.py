@@ -66,11 +66,9 @@ async def async_setup_entry(
     @callback
     def _handle_status_message(msg: mqtt.ReceiveMessage) -> None:
         try:
-            # Aceita: CloudAge/<device_id>  OU  CloudAge/<device_id>/qualquer/coisa
+            # CloudAge/<device_id> [ /... ]
             parts = msg.topic.split("/")
-            if len(parts) < 2:
-                return
-            if not msg.topic.startswith(HARDCODED_TOPIC_PREFIX):
+            if len(parts) < 2 or not msg.topic.startswith(HARDCODED_TOPIC_PREFIX):
                 return
 
             device_id = parts[1]
@@ -79,40 +77,51 @@ async def async_setup_entry(
 
             data = json.loads(msg.payload)
 
-            # Tipos aceitos (não é obrigatório, desde que exista Output/Outputs)
-            msg_type = (data.get("message") or "").upper()
+            # ---- 1) Tenta Output no topo (prioritário)
+            outputs_value = None
+            if isinstance(data.get("Output"), dict):
+                ov = data["Output"].get("Outputs")
+                if ov is not None:
+                    outputs_value = ov
 
-            # Captura seção Output em diferentes formatos
-            output_section = data.get("Output") or data.get("output") or {}
-            outputs_value = (
-                output_section.get("Outputs")
-                or output_section.get("outputs")
-                or output_section.get("value")  # fallback opcional
-            )
+            # ---- 2) Se não veio no topo, tenta decodificar message quando for JSON string
+            msg_field = data.get("message")
+            inner_type = None
+            if outputs_value is None and isinstance(msg_field, str) and msg_field.startswith("{"):
+                try:
+                    inner = json.loads(msg_field)
+                    inner_type = (inner.get("message") or "").upper()
+                    if isinstance(inner.get("Output"), dict):
+                        ov = inner["Output"].get("Outputs")
+                        if ov is not None:
+                            outputs_value = ov
+                except Exception:
+                    pass  # message não era JSON válido – ignora
 
+            # ---- 3) Se ainda não tem Output, nada para atualizar
             if outputs_value is None:
-                # Algumas mensagens não trazem Output; apenas ignore
                 return
 
+            # Aceita atualizar em OUTPUT_STATUS ou KeepAlive (ou sempre que houver Output)
+            # (Opcional) você pode filtrar por inner_type == OUTPUT_STATUS, mas KeepAlive também serve
             try:
                 bitmask = int(outputs_value)
             except (TypeError, ValueError):
-                _LOGGER.debug("Outputs não numérico em %s: %s", device_id, outputs_value)
+                _LOGGER.debug("Outputs não numérico em %s: %r", device_id, outputs_value)
                 return
 
             for i, ent in enumerate(entities_by_device[device_id]):
-                ent._attr_is_on = bool((bitmask >> i) & 0x1)
+                ent._attr_is_on = bool((bitmask >> i) & 1)
                 ent.async_write_ha_state()
 
             _LOGGER.debug(
-                "Atualizado estado de %d saídas do device %s (msg=%s).",
-                len(entities_by_device[device_id]),
-                device_id,
-                msg_type or "N/A",
+                "Atualizados %d switches de %s. bitmask=%s (inner_type=%s, topic=%s)",
+                len(entities_by_device[device_id]), device_id, bitmask, inner_type, msg.topic
             )
 
         except Exception as exc:
-            _LOGGER.error("Erro processando mensagem MQTT (%s): %s", msg.topic, exc)
+            _LOGGER.error("Erro processando MQTT (%s): %s", msg.topic, exc)
+
 
     # ---- Assinaturas (raiz + wildcard) e descarte no unload -------------------------------------
     for device_id in entities_by_device.keys():
