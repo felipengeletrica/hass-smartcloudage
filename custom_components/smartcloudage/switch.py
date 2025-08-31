@@ -46,7 +46,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # Exemplo: listar aliases (pode usar para log ou debug)
     _LOGGER.info(f"Aliases cadastrados: {list(entities_by_alias.keys())}")
 
-        async def message_received(msg):
+    async def message_received(msg):
         try:
             topic_parts = msg.topic.split("/")
             if len(topic_parts) < 2:   # <-- antes era < 3
@@ -81,10 +81,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
             _LOGGER.error(f"Erro processando mensagem MQTT: {e}")
 
     for device_id in entities_by_device.keys():
-        # publica status em OutTopic/ -> cobre com /# (trailing slash incluso)
-        await mqtt.async_subscribe(hass, f"{HARDCODED_TOPIC_PREFIX}{device_id}/OutTopic/#", message_received, 0)
-        # coringa do device (continua restrito aos IDs cadastrados pelo guard acima)
-        await mqtt.async_subscribe(hass, f"{HARDCODED_TOPIC_PREFIX}{device_id}/#",            message_received, 0)
+        # cobre qualquer product_name: +/<device_id>/OutTopic/...
+        await mqtt.async_subscribe(hass, f"+/{device_id}/OutTopic/#", message_received, 0)
+        # opcional (se algum status sair fora de OutTopic):
+        await mqtt.async_subscribe(hass, f"+/{device_id}/#",            message_received, 0)
+
 
 
 
