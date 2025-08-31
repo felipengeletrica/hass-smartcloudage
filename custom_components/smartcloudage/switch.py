@@ -46,18 +46,21 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # Exemplo: listar aliases (pode usar para log ou debug)
     _LOGGER.info(f"Aliases cadastrados: {list(entities_by_alias.keys())}")
 
-    # Assina tópicos de status uma vez por device_id
-    async def message_received(msg):
+        async def message_received(msg):
         try:
             topic_parts = msg.topic.split("/")
-            if len(topic_parts) < 3:
+            if len(topic_parts) < 2:   # <-- antes era < 3
                 return
             device_id = topic_parts[1]
+
+            # se o device_id do tópico não é um cadastrado, ignora
+            if device_id not in entities_by_device:
+                return
 
             raw = msg.payload.decode("utf-8") if isinstance(msg.payload, bytes) else msg.payload
             data = json.loads(raw)
 
-            # Se "message" vier como string JSON, tenta decodificar
+            # Desembrulha se "message" vier como JSON string (duplo-JSON)
             inner = data.get("message")
             if isinstance(inner, str):
                 try:
@@ -68,8 +71,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
             output_section = data.get("Output")
             outputs = output_section.get("Outputs") if isinstance(output_section, dict) else None
-            if outputs is not None and device_id in entities_by_device:
+            if outputs is not None:
                 outputs = int(outputs)
+                _LOGGER.debug("MQTT update topic=%s device=%s Outputs=%s", msg.topic, device_id, outputs)
                 for i, ent in enumerate(entities_by_device[device_id]):
                     ent._state = bool((outputs >> i) & 1)
                     ent.async_write_ha_state()
@@ -77,8 +81,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
             _LOGGER.error(f"Erro processando mensagem MQTT: {e}")
 
     for device_id in entities_by_device.keys():
-        topic = f"{HARDCODED_TOPIC_PREFIX}{device_id}/OutTopic/#"
-        await mqtt.async_subscribe(hass, topic, message_received, 0)
+        # publica status em OutTopic/ -> cobre com /# (trailing slash incluso)
+        await mqtt.async_subscribe(hass, f"{HARDCODED_TOPIC_PREFIX}{device_id}/OutTopic/#", message_received, 0)
+        # coringa do device (continua restrito aos IDs cadastrados pelo guard acima)
+        await mqtt.async_subscribe(hass, f"{HARDCODED_TOPIC_PREFIX}{device_id}/#",            message_received, 0)
+
 
 
 class SmartCloudOutputSwitch(SwitchEntity):
