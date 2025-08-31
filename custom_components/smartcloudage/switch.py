@@ -46,27 +46,55 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # Exemplo: listar aliases (pode usar para log ou debug)
     _LOGGER.info(f"Aliases cadastrados: {list(entities_by_alias.keys())}")
 
-    # Assina tópicos de status uma vez por device_id
     async def message_received(msg):
         try:
             topic_parts = msg.topic.split("/")
-            if len(topic_parts) < 3:
+            if len(topic_parts) < 2:   # <-- antes era < 3
                 return
             device_id = topic_parts[1]
-            data = json.loads(msg.payload)
-            if data.get("message") in ("OUTPUT_STATUS", "KeepAlive"):
-                output_section = data.get("Output")
-                outputs = output_section.get("Outputs") if output_section else None
-                if outputs is not None and device_id in entities_by_device:
-                    for i, ent in enumerate(entities_by_device[device_id]):
-                        ent._state = bool((outputs >> i) & 1)
-                        ent.async_write_ha_state()
+
+            # se o device_id do tópico não é um cadastrado, ignora
+            if device_id not in entities_by_device:
+                return
+
+            raw = msg.payload.decode("utf-8") if isinstance(msg.payload, bytes) else msg.payload
+            data = json.loads(raw)
+
+            # Desembrulha se "message" vier como JSON string (duplo-JSON)
+            inner = data.get("message")
+            if isinstance(inner, str):
+                try:
+                    inner_obj = json.loads(inner)
+                    data = {**data, **inner_obj}
+                except Exception:
+                    pass
+
+            # Ignora mensagens de INPUT_STATUS
+            msg_type = data.get("message")
+            if isinstance(msg_type, str) and msg_type.upper() == "INPUT_STATUS":
+                _LOGGER.debug("Ignorando INPUT_STATUS (topic=%s)", msg.topic)
+                return
+
+            output_section = data.get("Output")
+            outputs = output_section.get("Outputs") if isinstance(output_section, dict) else None
+            if outputs is not None:
+                outputs = int(outputs)
+                _LOGGER.debug("MQTT update topic=%s device=%s Outputs=%s", msg.topic, device_id, outputs)
+                for i, ent in enumerate(entities_by_device[device_id]):
+                    ent._state = bool((outputs >> i) & 1)
+                    ent.async_write_ha_state()
         except Exception as e:
-            _LOGGER.error(f"Erro processando mensagem MQTT: {e}")
+            _LOGGER.error(f"Erro processando mensagem MQTT: {e}  Payload: {msg.payload}")
 
     for device_id in entities_by_device.keys():
-        topic = f"{HARDCODED_TOPIC_PREFIX}{device_id}/OutTopic/"
-        await mqtt.async_subscribe(hass, topic, message_received, 0)
+        # cobre qualquer product_name: +/<device_id>/OutTopic/...
+        await mqtt.async_subscribe(hass, f"+/{device_id}/OutTopic/#", message_received, 0)
+        # opcional (se algum status sair fora de OutTopic):
+        await mqtt.async_subscribe(hass, f"+/{device_id}/#", message_received, 0)
+
+
+
+
 
 class SmartCloudOutputSwitch(SwitchEntity):
     def __init__(self, hass, name, output_id, base_topic, device_id, alias=None):

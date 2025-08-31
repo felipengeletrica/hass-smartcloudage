@@ -1,21 +1,54 @@
 # SmartCloudAge MQTT Integration for Home Assistant
 
-This custom component integrates SmartCloudAge hardware with Home Assistant using MQTT.
+This custom component integrates **SmartCloudAge hardware** with Home Assistant using MQTT.  
+The SmartCloudAge controller provides **16 inputs, 16 outputs, 2 dimming outputs (PWM)** and native integrations with **Home Assistant**
 
-## ✅ Features
+---
 
-- Supports multiple devices with individual `device_id`s
-- Up to 16 digital outputs per device
-- Sends commands to `CloudAge/<device_id>` MQTT topic
-- Creates switch entities for each output:
-  - `switch.smartcloudage_output_<device_id>_<output_id>`
+## ⚙️ Installation via HACS (Custom Repository)
 
-## 📋 Requirements
+> Requirements: Home Assistant with **HACS** installed and MQTT integration already configured.
 
-- MQTT Broker (e.g., Mosquitto)
-- Home Assistant with MQTT integration enabled
+1. In Home Assistant, open **HACS → Integrations → ⋯ (menu) → Custom repositories**.  
+2. In **Repository**, enter this repo URL (e.g., `https://github.com/felipengeletrica/hass-smartcloudage`).  
+3. In **Category**, choose **Integration** and click **Add**.  
+4. In the HACS main screen, search for **SmartCloudAge** and click **Install**.  
+5. **Restart** Home Assistant.  
+6. Go to **Settings → Devices & Services → Add Integration** and search for **SmartCloudAge** to add it.
 
-## 🧪 Example Lovelace Button Card using device "serial_6"
+---
+
+## 🔧 Device Configuration (Options Flow)
+
+After adding the integration, click on **Options** in the SmartCloudAge card to open the configuration form.
+
+### Edit existing devices
+For each registered device you will see indexed fields (`*_i`):
+
+- `device_id_i` — Device ID (e.g., `serial_6`)  
+- `outputs_i` — Number of outputs (**10** or **16**)  
+- `alias_i` — Alias for UI display (optional)
+
+### Add a new device
+At the bottom of the form there are optional fields:
+
+- `new_device_id` — ID of the new device  
+- `new_outputs` — **10** or **16** (default: 10)  
+- `new_alias` — Alias (optional; if empty, falls back to `new_device_id`)
+
+Click **Submit** to save.
+
+---
+
+## ✅ Best Practices
+
+- Use a stable `device_id` (e.g., serial number) — it defines the topic `CloudAge/<device_id>`.  
+- Adjust `outputs` according to the hardware (**10** or **16**).  
+- Use `alias` for easy identification in the dashboard.
+
+---
+
+## 🧪 Example Dashboard (optional)
 
 ```yaml
 type: grid
@@ -23,105 +56,24 @@ columns: 4
 square: false
 cards:
   - type: button
-    name: Saída 1
+    name: Output 1
     icon: mdi:power
     entity: switch.serial_6_output_1
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 2
-    icon: mdi:power
-    entity: switch.serial_6_output_2
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 3
-    icon: mdi:power
-    entity: switch.serial_6_output_3
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 4
-    icon: mdi:power
-    entity: switch.serial_6_output_4
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 5
-    icon: mdi:power
-    entity: switch.serial_6_output_5
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 6
-    icon: mdi:power
-    entity: switch.serial_6_output_6
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 7
-    icon: mdi:power
-    entity: switch.serial_6_output_7
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 8
-    icon: mdi:power
-    entity: switch.serial_6_output_8
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 9
-    icon: mdi:power
-    entity: switch.serial_6_output_9
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 10
-    icon: mdi:power
-    entity: switch.serial_6_output_10
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 11
-    icon: mdi:power
-    entity: switch.serial_6_output_11
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 12
-    icon: mdi:power
-    entity: switch.serial_6_output_12
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 13
-    icon: mdi:power
-    entity: switch.serial_6_output_13
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 14
-    icon: mdi:power
-    entity: switch.serial_6_output_14
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 15
-    icon: mdi:power
-    entity: switch.serial_6_output_15
-    show_icon: true
-    show_name: true
-  - type: button
-    name: Saída 16
-    icon: mdi:power
-    entity: switch.serial_6_output_16
-    show_icon: true
-    show_name: true
+  # ...repeat as needed
 ```
 
-## 🚀 Installation
+---
 
-1. Copy this folder into `custom_components/smartcloudage`
-2. Restart Home Assistant
-3. Enjoy!
+## 🛠️ Troubleshooting
+
+- **Integration not showing in Add Integration**: check if installed via HACS and restart HA.  
+- **Saving does nothing**: verify all `device_id_i` are filled and `outputs_i` is 10 or 16.  
+- **No MQTT action**: confirm broker connection and ensure `device_id` matches the physical device.
+
+---
+
+## 📞 Contact
+
+- 🌐 [smartcloudage.com.br](http://smartcloudage.com.br)  
+- 📧 [felipe@smartcloudage.com.br](mailto:felipe@smartcloudage.com.br)  
+- 📱 +55 (51) 99269-7065
