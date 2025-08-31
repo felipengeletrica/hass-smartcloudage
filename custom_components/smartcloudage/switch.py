@@ -48,19 +48,30 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async def message_received(msg):
         try:
-            topic_parts = msg.topic.split("/")
-            if len(topic_parts) < 2:   # <-- antes era < 3
+            parts = msg.topic.split("/")
+            if len(parts) < 2:
                 return
-            device_id = topic_parts[1]
-
-            # se o device_id do tópico não é um cadastrado, ignora
+            device_id = parts[1]
             if device_id not in entities_by_device:
                 return
 
             raw = msg.payload.decode("utf-8") if isinstance(msg.payload, bytes) else msg.payload
-            data = json.loads(raw)
 
-            # Desembrulha se "message" vier como JSON string (duplo-JSON)
+            # 1) Tenta parse normal
+            try:
+                data = json.loads(raw)
+            except JSONDecodeError as e:
+                _LOGGER.error(f"JSON inválido (topic={msg.topic}): {e}. Tentando extração por regex.")
+                # 2) Fallback: extrai Outputs direto do texto
+                m = re.search(r'"Output"\s*:\s*\{\s*"Outputs"\s*:\s*(\d+)\s*\}', raw)
+                if m:
+                    outputs = int(m.group(1))
+                    for i, ent in enumerate(entities_by_device[device_id]):
+                        ent._state = bool((outputs >> i) & 1)
+                        ent.async_write_ha_state()
+                return  # sai após o fallback
+
+            # 3) Se deu parse, “desembrulha” message se for string JSON válida
             inner = data.get("message")
             if isinstance(inner, str):
                 try:
@@ -73,21 +84,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
             outputs = output_section.get("Outputs") if isinstance(output_section, dict) else None
             if outputs is not None:
                 outputs = int(outputs)
-                _LOGGER.debug("MQTT update topic=%s device=%s Outputs=%s", msg.topic, device_id, outputs)
                 for i, ent in enumerate(entities_by_device[device_id]):
                     ent._state = bool((outputs >> i) & 1)
                     ent.async_write_ha_state()
         except Exception as e:
             _LOGGER.error(f"Erro processando mensagem MQTT: {e}")
-
-    for device_id in entities_by_device.keys():
-        # cobre qualquer product_name: +/<device_id>/OutTopic/...
-        await mqtt.async_subscribe(hass, f"+/{device_id}/OutTopic/#", message_received, 0)
-        # opcional (se algum status sair fora de OutTopic):
-        await mqtt.async_subscribe(hass, f"+/{device_id}/#",            message_received, 0)
-
-
-
 
 class SmartCloudOutputSwitch(SwitchEntity):
     def __init__(self, hass, name, output_id, base_topic, device_id, alias=None):
