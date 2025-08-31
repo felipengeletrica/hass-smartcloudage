@@ -16,8 +16,6 @@ The SmartCloudAge controller provides **16 inputs, 16 outputs, 2 dimming outputs
 5. **Restart** Home Assistant.  
 6. Go to **Settings → Devices & Services → Add Integration** and search for **SmartCloudAge** to add it.
 
-> **MQTT Topic**: The integration uses `CloudAge/<device_id>` to send commands.
-
 ---
 
 ## 🔧 Device Configuration (Options Flow)
