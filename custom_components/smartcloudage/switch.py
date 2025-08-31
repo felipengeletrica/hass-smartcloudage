@@ -69,6 +69,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 except Exception:
                     pass
 
+            # Ignora mensagens de INPUT_STATUS
+            msg_type = data.get("message")
+            if isinstance(msg_type, str) and msg_type.upper() == "INPUT_STATUS":
+                _LOGGER.debug("Ignorando INPUT_STATUS (topic=%s)", msg.topic)
+                return
+
             output_section = data.get("Output")
             outputs = output_section.get("Outputs") if isinstance(output_section, dict) else None
             if outputs is not None:
@@ -84,7 +90,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # cobre qualquer product_name: +/<device_id>/OutTopic/...
         await mqtt.async_subscribe(hass, f"+/{device_id}/OutTopic/#", message_received, 0)
         # opcional (se algum status sair fora de OutTopic):
-        await mqtt.async_subscribe(hass, f"+/{device_id}/#",            message_received, 0)
+        await mqtt.async_subscribe(hass, f"+/{device_id}/#", message_received, 0)
+
 
 
 
