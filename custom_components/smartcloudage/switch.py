@@ -84,7 +84,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                     ent._state = bool((outputs >> i) & 1)
                     ent.async_write_ha_state()
         except Exception as e:
-            _LOGGER.error(f"Erro processando mensagem MQTT: {e}")
+            _LOGGER.error(f"Erro processando mensagem MQTT: {e}  Payload: {msg.payload}")
 
     for device_id in entities_by_device.keys():
         # cobre qualquer product_name: +/<device_id>/OutTopic/...
