@@ -31,7 +31,7 @@ def build_datetime_payload(device_id, signature=None):
     }
 
 async def async_setup_entry(hass, entry):
-    await hass.config_entries.async_forward_entry_setups(entry, ["switch"])
+    await hass.config_entries.async_forward_entry_setups(entry, ["switch", "sensor"])
 
     devices = entry.options.get("devices")
     if devices is None:

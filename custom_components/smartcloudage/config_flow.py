@@ -16,6 +16,9 @@ class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         {
                             "device_id": user_input["device_id"],
                             "outputs": user_input["outputs"],
+                            "pulses": user_input["pulses"],
+                            "pulse_multiplier": user_input["pulse_multiplier"],
+                            "pulse_unit": user_input["pulse_unit"],
                             "alias": user_input.get("alias", user_input["device_id"])
                         }
                     ]
@@ -26,6 +29,9 @@ class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required("device_id"): str,
                 vol.Required("outputs", default=4): vol.All(int, vol.Range(min=1, max=16)),
+                vol.Required("pulses", default=16): vol.All(int, vol.Range(min=0, max=16)),
+                vol.Required("pulse_multiplier", default=1.0): vol.Coerce(float),
+                vol.Required("pulse_unit", default="pulses"): str,
                 vol.Optional("alias"): str,
             })
         )
