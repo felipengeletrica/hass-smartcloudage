@@ -6,6 +6,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers import selector
 
 DOMAIN = "smartcloudage"
 METER_TYPES = {
@@ -40,8 +41,16 @@ def meter_schema(defaults=None):
                 int, vol.Range(min=1, max=16)
             ),
             vol.Required("name", default=defaults.get("name", "")): str,
-            vol.Required("type", default=defaults.get("type", "water")): vol.In(
-                METER_TYPES
+            vol.Required(
+                "type", default=defaults.get("type", "water")
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(value=value, label=label)
+                        for value, label in METER_TYPES.items()
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
             ),
             vol.Required("factor", default=defaults.get("factor", 0.01)): vol.Coerce(
                 float
