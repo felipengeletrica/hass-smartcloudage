@@ -1,0 +1,84 @@
+{
+  "title": "Integração MQTT SmartCloudAge",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Adicionar dispositivo SmartCloudAge",
+        "description": "A conexão com o broker é fornecida pela integração MQTT oficial do Home Assistant.",
+        "data": {
+          "device_id": "ID do dispositivo",
+          "outputs": "Quantidade de saídas",
+          "alias": "Nome do dispositivo",
+          "configure_meter": "Configurar medidor de pulsos agora"
+        }
+      },
+      "meter": {
+        "title": "Configurar medidor de pulsos",
+        "description": "O total será calculado por ((MSB × 65536) + LSB) × fator + offset.",
+        "data": {
+          "channel": "Canal do sensor",
+          "name": "Nome do medidor",
+          "type": "Tipo",
+          "factor": "Fator por pulso",
+          "offset": "Offset de ajuste",
+          "unit": "Unidade",
+          "add_another": "Adicionar outro medidor"
+        }
+      }
+    },
+    "error": {
+      "channel_already_configured": "Este canal já possui um medidor.",
+      "factor_must_be_positive": "O fator deve ser maior que zero."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configurar medidores",
+        "menu_options": {
+          "add_meter": "Adicionar medidor",
+          "edit_meter": "Editar medidor",
+          "finish": "Salvar e concluir"
+        }
+      },
+      "add_meter": {
+        "title": "Adicionar medidor de pulsos",
+        "data": {
+          "channel": "Canal do sensor",
+          "name": "Nome do medidor",
+          "type": "Tipo",
+          "factor": "Fator por pulso",
+          "offset": "Offset de ajuste",
+          "unit": "Unidade",
+          "add_another": "Adicionar outro medidor"
+        }
+      },
+      "edit_meter": {
+        "title": "Escolher medidor",
+        "data": {
+          "meter": "Medidor"
+        }
+      },
+      "edit_meter_details": {
+        "title": "Editar medidor de pulsos",
+        "description": "Altere nome, canal, tipo, fator, offset ou unidade.",
+        "data": {
+          "channel": "Canal do sensor",
+          "name": "Nome do medidor",
+          "type": "Tipo",
+          "factor": "Fator por pulso",
+          "offset": "Offset de ajuste",
+          "unit": "Unidade",
+          "add_another": "Adicionar outro medidor"
+        }
+      }
+    },
+    "error": {
+      "channel_already_configured": "Este canal já possui um medidor.",
+      "factor_must_be_positive": "O fator deve ser maior que zero."
+    },
+    "abort": {
+      "no_meters_configured": "Não existem medidores cadastrados para editar."
+    }
+  }
+}
