@@ -1,0 +1,59 @@
+{
+  "title": "SmartCloudAge MQTT Integration",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Adicionar controladora SmartCloudAge",
+        "description": "A conexão com o broker é fornecida pela integração MQTT oficial do Home Assistant.",
+        "data": {
+          "device_id": "ID do dispositivo",
+          "outputs": "Quantidade de saídas",
+          "alias": "Nome da controladora",
+          "configure_meter": "Configurar medidor de pulsos agora"
+        }
+      },
+      "meter": {
+        "title": "Configurar medidor de pulsos",
+        "description": "O total será calculado por (MSB × 65536 + LSB) × fator.",
+        "data": {
+          "channel": "Canal do sensor",
+          "name": "Nome do medidor",
+          "type": "Tipo",
+          "factor": "Fator por pulso",
+          "unit": "Unidade",
+          "add_another": "Adicionar outro medidor"
+        }
+      }
+    },
+    "error": {
+      "channel_already_configured": "Este canal já possui um medidor.",
+      "factor_must_be_positive": "O fator deve ser maior que zero."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configurar medidores",
+        "menu_options": {
+          "add_meter": "Adicionar medidor",
+          "finish": "Salvar e concluir"
+        }
+      },
+      "add_meter": {
+        "title": "Adicionar medidor de pulsos",
+        "data": {
+          "channel": "Canal do sensor",
+          "name": "Nome do medidor",
+          "type": "Tipo",
+          "factor": "Fator por pulso",
+          "unit": "Unidade",
+          "add_another": "Adicionar outro medidor"
+        }
+      }
+    },
+    "error": {
+      "channel_already_configured": "Este canal já possui um medidor.",
+      "factor_must_be_positive": "O fator deve ser maior que zero."
+    }
+  }
+}
