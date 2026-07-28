@@ -65,7 +65,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     for device_id in entities_by_device:
         unsubscribe = await mqtt.async_subscribe(
             hass,
-            f"CloudAge/{device_id}/OutTopic/#",
+            `CloudAge/${device_id}/OutTopic/#`,
             message_received,
             0,
         )
@@ -76,6 +76,7 @@ class SmartCloudAgePulseSensor(SensorEntity):
     """Accumulated pulse meter exposed as a native HA sensor."""
 
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_suggested_display_precision = 3
     _attr_should_poll = False
 
     def __init__(self, device_id: str, alias: str, meter: dict[str, Any]) -> None:
