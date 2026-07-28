@@ -65,7 +65,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     for device_id in entities_by_device:
         unsubscribe = await mqtt.async_subscribe(
             hass,
-            `CloudAge/${device_id}/OutTopic/#`,
+            f"CloudAge/{device_id}/OutTopic/#",
             message_received,
             0,
         )
