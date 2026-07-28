@@ -1,0 +1,84 @@
+{
+  "title": "SmartCloudAge MQTT Integration",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add SmartCloudAge device",
+        "description": "The broker connection is provided by Home Assistant's official MQTT integration.",
+        "data": {
+          "device_id": "Device ID",
+          "outputs": "Number of outputs",
+          "alias": "Device name",
+          "configure_meter": "Configure a pulse meter now"
+        }
+      },
+      "meter": {
+        "title": "Configure pulse meter",
+        "description": "The total is calculated as ((MSB × 65536) + LSB) × factor + offset.",
+        "data": {
+          "channel": "Sensor channel",
+          "name": "Meter name",
+          "type": "Type",
+          "factor": "Factor per pulse",
+          "offset": "Adjustment offset",
+          "unit": "Unit",
+          "add_another": "Add another meter"
+        }
+      }
+    },
+    "error": {
+      "channel_already_configured": "This channel already has a configured meter.",
+      "factor_must_be_positive": "The factor must be greater than zero."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure meters",
+        "menu_options": {
+          "add_meter": "Add meter",
+          "edit_meter": "Edit meter",
+          "finish": "Save and finish"
+        }
+      },
+      "add_meter": {
+        "title": "Add pulse meter",
+        "data": {
+          "channel": "Sensor channel",
+          "name": "Meter name",
+          "type": "Type",
+          "factor": "Factor per pulse",
+          "offset": "Adjustment offset",
+          "unit": "Unit",
+          "add_another": "Add another meter"
+        }
+      },
+      "edit_meter": {
+        "title": "Choose meter",
+        "data": {
+          "meter": "Meter"
+        }
+      },
+      "edit_meter_details": {
+        "title": "Edit pulse meter",
+        "description": "Change the name, channel, type, factor, offset, or unit.",
+        "data": {
+          "channel": "Sensor channel",
+          "name": "Meter name",
+          "type": "Type",
+          "factor": "Factor per pulse",
+          "offset": "Adjustment offset",
+          "unit": "Unit",
+          "add_another": "Add another meter"
+        }
+      }
+    },
+    "error": {
+      "channel_already_configured": "This channel already has a configured meter.",
+      "factor_must_be_positive": "The factor must be greater than zero."
+    },
+    "abort": {
+      "no_meters_configured": "There are no configured meters to edit."
+    }
+  }
+}
