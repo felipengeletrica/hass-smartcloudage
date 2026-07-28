@@ -32,36 +32,36 @@ def device_schema(defaults=None):
     )
 
 
-def meter_schema(defaults=None):
+def meter_schema(defaults=None, *, include_add_another=True):
     """Build a pulse meter form."""
     defaults = defaults or {}
-    return vol.Schema(
-        {
-            vol.Required("channel", default=defaults.get("channel", 1)): vol.All(
-                int, vol.Range(min=1, max=16)
-            ),
-            vol.Required("name", default=defaults.get("name", "")): str,
-            vol.Required(
-                "type", default=defaults.get("type", "water")
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[
-                        selector.SelectOptionDict(value=value, label=label)
-                        for value, label in METER_TYPES.items()
-                    ],
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
-            vol.Required("factor", default=defaults.get("factor", 0.01)): vol.Coerce(
-                float
-            ),
-            vol.Required("offset", default=defaults.get("offset", 0.0)): vol.Coerce(
-                float
-            ),
-            vol.Required("unit", default=defaults.get("unit", "m³")): str,
-            vol.Required("add_another", default=False): bool,
-        }
-    )
+    fields = {
+        vol.Required("channel", default=defaults.get("channel", 1)): vol.All(
+            int, vol.Range(min=1, max=16)
+        ),
+        vol.Required("name", default=defaults.get("name", "")): str,
+        vol.Required(
+            "type", default=defaults.get("type", "water")
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[
+                    selector.SelectOptionDict(value=value, label=label)
+                    for value, label in METER_TYPES.items()
+                ],
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        ),
+        vol.Required("factor", default=defaults.get("factor", 0.01)): vol.Coerce(
+            float
+        ),
+        vol.Required("offset", default=defaults.get("offset", 0.0)): vol.Coerce(
+            float
+        ),
+        vol.Required("unit", default=defaults.get("unit", "m³")): str,
+    }
+    if include_add_another:
+        fields[vol.Required("add_another", default=False)] = bool
+    return vol.Schema(fields)
 
 
 class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -124,7 +124,7 @@ class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
-    """Add pulse meters to an existing controller."""
+    """Add or edit pulse meters on an existing device."""
 
     def __init__(self):
         self._devices = None
@@ -144,7 +144,7 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def async_step_add_meter(self, user_input=None):
-        """Add a meter to the first configured controller."""
+        """Add and immediately persist a meter."""
         errors = {}
         if user_input is not None:
             meters = self._devices[0].setdefault("meters", [])
@@ -153,12 +153,11 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             elif user_input["factor"] <= 0:
                 errors["factor"] = "factor_must_be_positive"
             else:
-                user_input.pop("add_another", None)
                 meters.append(user_input)
-                return await self.async_step_init()
+                return self._save_options()
         return self.async_show_form(
             step_id="add_meter",
-            data_schema=meter_schema(),
+            data_schema=meter_schema(include_add_another=False),
             errors=errors,
         )
 
@@ -180,7 +179,7 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def async_step_edit_meter_details(self, user_input=None):
-        """Edit conversion settings for a configured meter."""
+        """Edit and immediately persist a configured meter."""
         meters = self._devices[0]["meters"]
         current = meters[self._meter_index]
         errors = {}
@@ -194,16 +193,19 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             elif user_input["factor"] <= 0:
                 errors["factor"] = "factor_must_be_positive"
             else:
-                user_input.pop("add_another", None)
                 meters[self._meter_index] = user_input
                 self._meter_index = None
-                return await self.async_step_init()
+                return self._save_options()
         return self.async_show_form(
             step_id="edit_meter_details",
-            data_schema=meter_schema(current),
+            data_schema=meter_schema(current, include_add_another=False),
             errors=errors,
         )
 
     async def async_step_finish(self, user_input=None):
-        """Save options and reload the integration."""
+        """Save unchanged options and close the flow."""
+        return self._save_options()
+
+    def _save_options(self):
+        """Persist the current device list and close the options flow."""
         return self.async_create_entry(title="", data={"devices": self._devices})
