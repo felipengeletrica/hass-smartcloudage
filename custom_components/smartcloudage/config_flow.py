@@ -31,15 +31,25 @@ def device_schema(defaults=None):
     )
 
 
-def meter_schema():
+def meter_schema(defaults=None):
     """Build a pulse meter form."""
+    defaults = defaults or {}
     return vol.Schema(
         {
-            vol.Required("channel", default=1): vol.All(int, vol.Range(min=1, max=16)),
-            vol.Required("name"): str,
-            vol.Required("type", default="water"): vol.In(METER_TYPES),
-            vol.Required("factor", default=0.01): vol.Coerce(float),
-            vol.Required("unit", default="m³"): str,
+            vol.Required("channel", default=defaults.get("channel", 1)): vol.All(
+                int, vol.Range(min=1, max=16)
+            ),
+            vol.Required("name", default=defaults.get("name", "")): str,
+            vol.Required("type", default=defaults.get("type", "water")): vol.In(
+                METER_TYPES
+            ),
+            vol.Required("factor", default=defaults.get("factor", 0.01)): vol.Coerce(
+                float
+            ),
+            vol.Required("offset", default=defaults.get("offset", 0.0)): vol.Coerce(
+                float
+            ),
+            vol.Required("unit", default=defaults.get("unit", "m³")): str,
             vol.Required("add_another", default=False): bool,
         }
     )
@@ -109,6 +119,7 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self):
         self._devices = None
+        self._meter_index = None
 
     async def async_step_init(self, user_input=None):
         """Show the available options."""
@@ -120,7 +131,7 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             ]
         return self.async_show_menu(
             step_id="init",
-            menu_options=["add_meter", "finish"],
+            menu_options=["add_meter", "edit_meter", "finish"],
         )
 
     async def async_step_add_meter(self, user_input=None):
@@ -139,6 +150,48 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="add_meter",
             data_schema=meter_schema(),
+            errors=errors,
+        )
+
+    async def async_step_edit_meter(self, user_input=None):
+        """Choose an existing meter to edit."""
+        meters = self._devices[0].get("meters", [])
+        if not meters:
+            return self.async_abort(reason="no_meters_configured")
+        if user_input is not None:
+            self._meter_index = int(user_input["meter"])
+            return await self.async_step_edit_meter_details()
+        choices = {
+            index: f"Canal {meter['channel']} — {meter.get('name', 'Medidor')}"
+            for index, meter in enumerate(meters)
+        }
+        return self.async_show_form(
+            step_id="edit_meter",
+            data_schema=vol.Schema({vol.Required("meter"): vol.In(choices)}),
+        )
+
+    async def async_step_edit_meter_details(self, user_input=None):
+        """Edit conversion settings for a configured meter."""
+        meters = self._devices[0]["meters"]
+        current = meters[self._meter_index]
+        errors = {}
+        if user_input is not None:
+            if any(
+                index != self._meter_index
+                and meter["channel"] == user_input["channel"]
+                for index, meter in enumerate(meters)
+            ):
+                errors["channel"] = "channel_already_configured"
+            elif user_input["factor"] <= 0:
+                errors["factor"] = "factor_must_be_positive"
+            else:
+                user_input.pop("add_another", None)
+                meters[self._meter_index] = user_input
+                self._meter_index = None
+                return await self.async_step_init()
+        return self.async_show_form(
+            step_id="edit_meter_details",
+            data_schema=meter_schema(current),
             errors=errors,
         )
 
