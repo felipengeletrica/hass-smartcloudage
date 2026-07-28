@@ -1,7 +1,7 @@
 {
   "domain": "smartcloudage",
   "name": "SmartCloudAge MQTT Integration",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "documentation": "https://github.com/felipengeletrica/hass-smartcloudage",
   "issue_tracker": "https://github.com/felipengeletrica/hass-smartcloudage/issues",
   "config_flow": true,
