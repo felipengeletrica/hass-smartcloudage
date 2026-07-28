@@ -1,16 +1,23 @@
+"""SmartCloudAge integration."""
+
 from datetime import datetime, timedelta
-from homeassistant.helpers.event import async_track_time_interval
-from homeassistant.components import mqtt
 import json
 import logging
 
+from homeassistant.components import mqtt
+from homeassistant.helpers.event import async_track_time_interval
+
 DOMAIN = "smartcloudage"
+PLATFORMS = ["switch", "sensor"]
 SYNC_RTC_INTERVAL = 5
 CONFIG_DATE_TIME_ENUM = 9
 WRITE = 1
+
 _LOGGER = logging.getLogger(__name__)
 
+
 def build_datetime_payload(device_id, signature=None):
+    """Build the controller RTC synchronization command."""
     now = datetime.now()
     if not signature:
         signature = device_id
@@ -30,35 +37,44 @@ def build_datetime_payload(device_id, signature=None):
         "signature": signature,
     }
 
+
 async def async_setup_entry(hass, entry):
-    await hass.config_entries.async_forward_entry_setups(entry, ["switch"])
+    """Set up SmartCloudAge from a config entry."""
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
 
-    devices = entry.options.get("devices")
-    if devices is None:
-        devices = entry.data.get("devices", [])
-
+    devices = entry.options.get("devices", entry.data.get("devices", []))
 
     async def send_datetime_to_devices(_now):
         for device in devices:
             device_id = device.get("device_id")
+            if not device_id:
+                continue
             signature = device.get("signature", device_id)
-            payload = build_datetime_payload(device_id, signature)
-            topic = f"CloudAge/{device_id}"
-
             await mqtt.async_publish(
+                hass,
+                f"CloudAge/{device_id}",
+                json.dumps(build_datetime_payload(device_id, signature)),
+                0,
+                False,
+            )
+
+    entry.async_on_unload(
+        async_track_time_interval(
             hass,
-            topic,
-            json.dumps(payload),
-            0,
-            False
+            send_datetime_to_devices,
+            timedelta(minutes=SYNC_RTC_INTERVAL),
         )
-
-    # Register schedule
-    async_track_time_interval(
-        hass, send_datetime_to_devices, timedelta(minutes=SYNC_RTC_INTERVAL)
     )
-
-    # First send trigger
     hass.async_create_task(send_datetime_to_devices(None))
-
     return True
+
+
+async def async_unload_entry(hass, entry):
+    """Unload a SmartCloudAge config entry."""
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def _async_reload_entry(hass, entry):
+    """Reload entities after an options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
