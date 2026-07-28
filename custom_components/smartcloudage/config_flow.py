@@ -48,7 +48,7 @@ def meter_schema():
 class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Configure a SmartCloudAge controller and its pulse meters."""
 
-    VERSION = 2
+    VERSION = 1
 
     def __init__(self):
         self._device = None
@@ -101,22 +101,23 @@ class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return SmartCloudAgeOptionsFlow(config_entry)
+        return SmartCloudAgeOptionsFlow()
 
 
 class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
     """Add pulse meters to an existing controller."""
 
-    def __init__(self, config_entry):
-        self._config_entry = config_entry
-        source = config_entry.options or config_entry.data
-        self._devices = [
-            {**device, "meters": list(device.get("meters", []))}
-            for device in source.get("devices", [])
-        ]
+    def __init__(self):
+        self._devices = None
 
     async def async_step_init(self, user_input=None):
         """Show the available options."""
+        if self._devices is None:
+            source = self.config_entry.options or self.config_entry.data
+            self._devices = [
+                {**device, "meters": list(device.get("meters", []))}
+                for device in source.get("devices", [])
+            ]
         return self.async_show_menu(
             step_id="init",
             menu_options=["add_meter", "finish"],
