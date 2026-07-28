@@ -3,12 +3,12 @@
   "config": {
     "step": {
       "user": {
-        "title": "Adicionar controladora SmartCloudAge",
+        "title": "Adicionar dispositivo SmartCloudAge",
         "description": "A conexão com o broker é fornecida pela integração MQTT oficial do Home Assistant.",
         "data": {
           "device_id": "ID do dispositivo",
           "outputs": "Quantidade de saídas",
-          "alias": "Nome da controladora",
+          "alias": "Nome do dispositivo",
           "configure_meter": "Configurar medidor de pulsos agora"
         }
       },
