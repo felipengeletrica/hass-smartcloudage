@@ -82,6 +82,7 @@ class SmartCloudAgePulseSensor(SensorEntity):
         self._device_id = device_id
         self._channel = int(meter["channel"])
         self._factor = float(meter.get("factor", 1.0))
+        self._offset = float(meter.get("offset", 0.0))
         self._attr_name = meter.get("name") or f"{alias} Sensor {self._channel}"
         self._attr_unique_id = f"smartcloudage_{device_id}_pulse_{self._channel}"
         self._attr_native_unit_of_measurement = meter.get("unit") or "pulses"
@@ -96,6 +97,7 @@ class SmartCloudAgePulseSensor(SensorEntity):
         return {
             "raw_pulses": self._raw_pulses,
             "pulse_factor": self._factor,
+            "offset": self._offset,
             "channel": self._channel,
         }
 
@@ -112,5 +114,7 @@ class SmartCloudAgePulseSensor(SensorEntity):
     def update_pulses(self, raw_pulses: int) -> None:
         """Apply the configured conversion factor and update HA."""
         self._raw_pulses = raw_pulses
-        self._attr_native_value = round(raw_pulses * self._factor, 9)
+        self._attr_native_value = round(
+            raw_pulses * self._factor + self._offset, 9
+        )
         self.async_write_ha_state()
