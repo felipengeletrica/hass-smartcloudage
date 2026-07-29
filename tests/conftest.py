@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
     """Allow Home Assistant to load this custom integration in every test."""
+
+
+@pytest.fixture(autouse=True)
+def mock_mqtt_publish():
+    """Prevent tests from requiring a configured MQTT broker."""
+    with patch(
+        "custom_components.smartcloudage.mqtt.async_publish",
+        new_callable=AsyncMock,
+    ) as publish:
+        yield publish
 
 
 @pytest.fixture
