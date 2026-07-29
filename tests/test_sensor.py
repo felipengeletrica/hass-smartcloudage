@@ -7,7 +7,12 @@ from unittest.mock import Mock
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfEnergy, UnitOfVolume
 
-from custom_components.smartcloudage.sensor import SmartCloudAgePulseSensor
+from custom_components.smartcloudage.sensor import (
+    SmartCloudAgePulseSensor,
+    SmartCloudAgeRSSISensor,
+    SmartCloudAgeUptimeSensor,
+    classify_rssi,
+)
 
 
 def _meter(meter_type: str, **overrides):
@@ -92,3 +97,56 @@ def test_unique_id_and_device_registry_identity_are_stable():
     assert sensor.device_info["identifiers"] == {
         ("smartcloudage", "controller-01")
     }
+
+
+def test_rssi_classification_thresholds():
+    """Signal quality uses stable warning and critical boundaries."""
+    assert classify_rssi(-60) == "good"
+    assert classify_rssi(-70) == "fair"
+    assert classify_rssi(-75) == "poor"
+    assert classify_rssi(-84) == "poor"
+    assert classify_rssi(-85) == "critical"
+
+
+def test_rssi_alarm_attributes_and_state_update(caplog):
+    """Poor RSSI exposes an alarm and logs only when its range changes."""
+    sensor = SmartCloudAgeRSSISensor("controller-01", "Bancada")
+    sensor.async_write_ha_state = Mock()
+
+    sensor.update_rssi(-78)
+    sensor.update_rssi(-80)
+
+    assert sensor.native_value == -80
+    assert sensor.extra_state_attributes["signal_quality"] == "poor"
+    assert sensor.extra_state_attributes["alarm"] is True
+    assert caplog.messages.count(
+        "SmartCloudAge Bancada Wi-Fi signal is poor: -78 dBm"
+    ) == 1
+    sensor.async_write_ha_state.assert_called_with()
+
+
+def test_rssi_recovery_is_reported(caplog):
+    """Recovery from a signal alarm is logged once."""
+    sensor = SmartCloudAgeRSSISensor("controller-01", "Bancada")
+    sensor.async_write_ha_state = Mock()
+
+    sensor.update_rssi(-90)
+    sensor.update_rssi(-65)
+
+    assert sensor.extra_state_attributes["alarm"] is False
+    assert "SmartCloudAge Bancada Wi-Fi signal recovered: -65 dBm (good)" in caplog.messages
+
+
+def test_uptime_drop_detects_restart(caplog):
+    """A lower uptime value indicates that the controller restarted."""
+    sensor = SmartCloudAgeUptimeSensor("controller-01", "Bancada")
+    sensor.async_write_ha_state = Mock()
+
+    sensor.update_uptime(3121)
+    sensor.update_uptime(7)
+
+    assert sensor.native_value == 7
+    assert (
+        "SmartCloudAge Bancada restarted: uptime dropped from 3121 to 7 seconds"
+        in caplog.messages
+    )
