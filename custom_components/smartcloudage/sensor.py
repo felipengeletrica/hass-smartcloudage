@@ -8,6 +8,7 @@ from typing import Any
 
 from homeassistant.components import mqtt
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.const import UnitOfEnergy, UnitOfVolume
 
 DOMAIN = "smartcloudage"
 _LOGGER = logging.getLogger(__name__)
@@ -16,6 +17,12 @@ DEVICE_CLASSES = {
     "water": SensorDeviceClass.WATER,
     "gas": SensorDeviceClass.GAS,
     "energy": SensorDeviceClass.ENERGY,
+}
+
+NATIVE_UNITS = {
+    "water": UnitOfVolume.CUBIC_METERS,
+    "gas": UnitOfVolume.CUBIC_METERS,
+    "energy": UnitOfEnergy.KILO_WATT_HOUR,
 }
 
 
@@ -84,10 +91,13 @@ class SmartCloudAgePulseSensor(SensorEntity):
         self._channel = int(meter["channel"])
         self._factor = float(meter.get("factor", 1.0))
         self._offset = float(meter.get("offset", 0.0))
+        meter_type = meter.get("type")
         self._attr_name = meter.get("name") or f"{alias} Sensor {self._channel}"
         self._attr_unique_id = f"smartcloudage_{device_id}_pulse_{self._channel}"
-        self._attr_native_unit_of_measurement = meter.get("unit") or "pulses"
-        self._attr_device_class = DEVICE_CLASSES.get(meter.get("type"))
+        self._attr_native_unit_of_measurement = NATIVE_UNITS.get(
+            meter_type, meter.get("unit") or "pulses"
+        )
+        self._attr_device_class = DEVICE_CLASSES.get(meter_type)
         self._attr_native_value = None
         self._raw_pulses = None
         self._alias = alias
