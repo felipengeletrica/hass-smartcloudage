@@ -38,6 +38,7 @@
         "menu_options": {
           "add_meter": "Adicionar medidor",
           "edit_meter": "Editar medidor",
+          "delete_meter": "Excluir medidor",
           "finish": "Salvar e concluir"
         }
       },
@@ -71,6 +72,20 @@
           "unit": "Unidade",
           "add_another": "Adicionar outro medidor"
         }
+      },
+      "delete_meter": {
+        "title": "Escolher medidor para excluir",
+        "description": "Selecione o medidor que será removido da integração.",
+        "data": {
+          "meter": "Medidor"
+        }
+      },
+      "confirm_delete_meter": {
+        "title": "Confirmar exclusão",
+        "description": "Excluir o medidor {meter} do canal {channel}? A entidade será removida, mas o histórico já registrado não será apagado.",
+        "data": {
+          "confirm": "Confirmo a exclusão deste medidor"
+        }
       }
     },
     "error": {
@@ -78,7 +93,7 @@
       "factor_must_be_positive": "O fator deve ser maior que zero."
     },
     "abort": {
-      "no_meters_configured": "Não existem medidores cadastrados para editar."
+      "no_meters_configured": "Não existem medidores cadastrados."
     }
   }
 }
