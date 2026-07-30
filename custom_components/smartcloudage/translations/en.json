@@ -38,6 +38,7 @@
         "menu_options": {
           "add_meter": "Add meter",
           "edit_meter": "Edit meter",
+          "delete_meter": "Delete meter",
           "finish": "Save and finish"
         }
       },
@@ -71,6 +72,20 @@
           "unit": "Unit",
           "add_another": "Add another meter"
         }
+      },
+      "delete_meter": {
+        "title": "Choose meter to delete",
+        "description": "Select the meter that will be removed from the integration.",
+        "data": {
+          "meter": "Meter"
+        }
+      },
+      "confirm_delete_meter": {
+        "title": "Confirm deletion",
+        "description": "Delete meter {meter} on channel {channel}? The entity will be removed, but its previously recorded history will not be erased.",
+        "data": {
+          "confirm": "I confirm deletion of this meter"
+        }
       }
     },
     "error": {
@@ -78,7 +93,7 @@
       "factor_must_be_positive": "The factor must be greater than zero."
     },
     "abort": {
-      "no_meters_configured": "There are no configured meters to edit."
+      "no_meters_configured": "There are no configured meters."
     }
   }
 }
