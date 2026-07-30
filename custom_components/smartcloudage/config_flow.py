@@ -17,6 +17,9 @@ METER_TYPES = {
 }
 
 
+## @brief Builds the validation schema for a SmartCloudAge controller.
+#  @param defaults Optional initial form values.
+#  @return Voluptuous schema for controller identification and output settings.
 def device_schema(defaults=None):
     """Build the controller form."""
     defaults = defaults or {}
@@ -32,6 +35,10 @@ def device_schema(defaults=None):
     )
 
 
+## @brief Builds the validation schema for an accumulated pulse meter.
+#  @param defaults Optional initial meter values.
+#  @param include_add_another Whether to include the repeated-entry control.
+#  @return Voluptuous schema containing channel, conversion and unit settings.
 def meter_schema(defaults=None, *, include_add_another=True):
     """Build a pulse meter form."""
     defaults = defaults or {}
@@ -64,14 +71,19 @@ def meter_schema(defaults=None, *, include_add_another=True):
     return vol.Schema(fields)
 
 
+## @brief Guides initial configuration of a controller and its pulse meters.
 class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Configure a SmartCloudAge controller and its pulse meters."""
 
     VERSION = 1
 
     def __init__(self):
+        ## @brief Initializes the temporary controller configuration.
         self._device = None
 
+    ## @brief Collects and validates the controller's primary settings.
+    #  @param user_input Values submitted by the user, or @c None on first display.
+    #  @return A form, the meter step, an abort result or a completed entry.
     async def async_step_user(self, user_input=None):
         """Configure the controller."""
         if user_input is not None:
@@ -89,6 +101,9 @@ class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self._create_entry()
         return self.async_show_form(step_id="user", data_schema=device_schema())
 
+    ## @brief Collects one or more pulse-meter definitions.
+    #  @param user_input Submitted meter values, or @c None on first display.
+    #  @return The meter form or a completed configuration entry.
     async def async_step_meter(self, user_input=None):
         """Configure one or more accumulated pulse meters."""
         errors = {}
@@ -111,6 +126,8 @@ class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    ## @brief Creates the Home Assistant entry from the collected controller data.
+    #  @return Completed configuration-flow result.
     def _create_entry(self):
         return self.async_create_entry(
             title=self._device["alias"],
@@ -119,17 +136,25 @@ class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
+    ## @brief Creates the options flow associated with an existing entry.
+    #  @param config_entry Existing entry supplied by Home Assistant.
+    #  @return New SmartCloudAge options-flow instance.
     def async_get_options_flow(config_entry):
         return SmartCloudAgeOptionsFlow()
 
 
+## @brief Manages pulse meters belonging to an existing controller.
 class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
     """Add or edit pulse meters on an existing device."""
 
     def __init__(self):
+        ## @brief Initializes the editable device list and meter selection.
         self._devices = None
         self._meter_index = None
 
+    ## @brief Displays the available meter-management operations.
+    #  @param user_input Menu input supplied by Home Assistant.
+    #  @return Options-flow menu.
     async def async_step_init(self, user_input=None):
         """Show the available options."""
         if self._devices is None:
@@ -143,6 +168,9 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             menu_options=["add_meter", "edit_meter", "finish"],
         )
 
+    ## @brief Validates, adds and persists a new pulse meter.
+    #  @param user_input Submitted meter values, or @c None on first display.
+    #  @return Meter form or completed options entry.
     async def async_step_add_meter(self, user_input=None):
         """Add and immediately persist a meter."""
         errors = {}
@@ -161,6 +189,9 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             errors=errors,
         )
 
+    ## @brief Lets the user select a configured meter for editing.
+    #  @param user_input Selected meter index, or @c None on first display.
+    #  @return Selection form, edit form or abort result.
     async def async_step_edit_meter(self, user_input=None):
         """Choose an existing meter to edit."""
         meters = self._devices[0].get("meters", [])
@@ -178,6 +209,9 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema({vol.Required("meter"): vol.In(choices)}),
         )
 
+    ## @brief Validates and persists changes to the selected meter.
+    #  @param user_input Updated meter values, or @c None on first display.
+    #  @return Edit form or completed options entry.
     async def async_step_edit_meter_details(self, user_input=None):
         """Edit and immediately persist a configured meter."""
         meters = self._devices[0]["meters"]
@@ -202,10 +236,15 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             errors=errors,
         )
 
+    ## @brief Closes the options flow without changing the working data.
+    #  @param user_input Unused menu input.
+    #  @return Completed options entry.
     async def async_step_finish(self, user_input=None):
         """Save unchanged options and close the flow."""
         return self._save_options()
 
+    ## @brief Persists the current device list.
+    #  @return Completed options-flow result.
     def _save_options(self):
         """Persist the current device list and close the options flow."""
         return self.async_create_entry(title="", data={"devices": self._devices})
