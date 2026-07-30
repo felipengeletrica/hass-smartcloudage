@@ -26,9 +26,9 @@ def device_schema(defaults=None):
     return vol.Schema(
         {
             vol.Required("device_id", default=defaults.get("device_id", "")): str,
-            vol.Required("outputs", default=defaults.get("outputs", 4)): vol.All(
-                int, vol.Range(min=0, max=16)
-            ),
+            vol.Required(
+                "outputs", default=defaults.get("outputs", 16)
+            ): vol.In({10: "10", 16: "16"}),
             vol.Optional("alias", default=defaults.get("alias", "")): str,
             vol.Required("configure_meter", default=False): bool,
         }
