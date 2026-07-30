@@ -20,7 +20,7 @@ async def test_user_flow_without_meter(hass):
         result["flow_id"],
         {
             "device_id": "controller-01",
-            "outputs": 4,
+            "outputs": 16,
             "alias": "Bancada",
             "configure_meter": False,
         },
@@ -40,7 +40,7 @@ async def test_meter_rejects_non_positive_factor(hass):
         result["flow_id"],
         {
             "device_id": "controller-02",
-            "outputs": 4,
+            "outputs": 16,
             "alias": "Predial",
             "configure_meter": True,
         },
@@ -71,7 +71,7 @@ async def test_meter_rejects_duplicate_channel(hass):
         result["flow_id"],
         {
             "device_id": "controller-03",
-            "outputs": 4,
+            "outputs": 16,
             "alias": "Predial",
             "configure_meter": True,
         },
