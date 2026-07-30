@@ -6,7 +6,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.helpers import selector
+from homeassistant.helpers import entity_registry as er, selector
 
 DOMAIN = "smartcloudage"
 METER_TYPES = {
@@ -145,7 +145,7 @@ class SmartCloudAgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 ## @brief Manages pulse meters belonging to an existing controller.
 class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
-    """Add or edit pulse meters on an existing device."""
+    """Add, edit or delete pulse meters on an existing device."""
 
     def __init__(self):
         ## @brief Initializes the editable device list and meter selection.
@@ -165,7 +165,7 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             ]
         return self.async_show_menu(
             step_id="init",
-            menu_options=["add_meter", "edit_meter", "finish"],
+            menu_options=["add_meter", "edit_meter", "delete_meter", "finish"],
         )
 
     ## @brief Validates, adds and persists a new pulse meter.
@@ -189,6 +189,16 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             errors=errors,
         )
 
+    ## @brief Builds labels for the currently configured meters.
+    #  @return Mapping from meter index to a human-readable channel and name.
+    def _meter_choices(self):
+        """Return configured meters as selector choices."""
+        meters = self._devices[0].get("meters", [])
+        return {
+            index: f"Canal {meter['channel']} — {meter.get('name', 'Medidor')}"
+            for index, meter in enumerate(meters)
+        }
+
     ## @brief Lets the user select a configured meter for editing.
     #  @param user_input Selected meter index, or @c None on first display.
     #  @return Selection form, edit form or abort result.
@@ -200,13 +210,11 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             self._meter_index = int(user_input["meter"])
             return await self.async_step_edit_meter_details()
-        choices = {
-            index: f"Canal {meter['channel']} — {meter.get('name', 'Medidor')}"
-            for index, meter in enumerate(meters)
-        }
         return self.async_show_form(
             step_id="edit_meter",
-            data_schema=vol.Schema({vol.Required("meter"): vol.In(choices)}),
+            data_schema=vol.Schema(
+                {vol.Required("meter"): vol.In(self._meter_choices())}
+            ),
         )
 
     ## @brief Validates and persists changes to the selected meter.
@@ -234,6 +242,57 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             step_id="edit_meter_details",
             data_schema=meter_schema(current, include_add_another=False),
             errors=errors,
+        )
+
+    ## @brief Lets the user choose a configured meter for deletion.
+    #  @param user_input Selected meter index, or @c None on first display.
+    #  @return Selection form, confirmation form or abort result.
+    async def async_step_delete_meter(self, user_input=None):
+        """Choose an existing meter to delete."""
+        meters = self._devices[0].get("meters", [])
+        if not meters:
+            return self.async_abort(reason="no_meters_configured")
+        if user_input is not None:
+            self._meter_index = int(user_input["meter"])
+            return await self.async_step_confirm_delete_meter()
+        return self.async_show_form(
+            step_id="delete_meter",
+            data_schema=vol.Schema(
+                {vol.Required("meter"): vol.In(self._meter_choices())}
+            ),
+        )
+
+    ## @brief Confirms deletion and removes the selected meter entity.
+    #  @param user_input Confirmation submitted by the user.
+    #  @return Confirmation form or completed options entry.
+    async def async_step_confirm_delete_meter(self, user_input=None):
+        """Confirm and delete the selected meter."""
+        meters = self._devices[0]["meters"]
+        meter = meters[self._meter_index]
+
+        if user_input is not None and user_input["confirm"]:
+            device_id = self._devices[0].get("device_id")
+            channel = int(meter["channel"])
+            unique_id = f"smartcloudage_{device_id}_pulse_{channel}"
+            entity_registry = er.async_get(self.hass)
+            entity_id = entity_registry.async_get_entity_id(
+                "sensor", DOMAIN, unique_id
+            )
+            if entity_id is not None:
+                entity_registry.async_remove(entity_id)
+
+            meters.pop(self._meter_index)
+            self._meter_index = None
+            return self._save_options()
+
+        placeholders = {
+            "meter": meter.get("name", "Medidor"),
+            "channel": str(meter["channel"]),
+        }
+        return self.async_show_form(
+            step_id="confirm_delete_meter",
+            data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
+            description_placeholders=placeholders,
         )
 
     ## @brief Closes the options flow without changing the working data.
