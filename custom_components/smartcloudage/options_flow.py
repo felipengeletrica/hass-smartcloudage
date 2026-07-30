@@ -3,6 +3,9 @@ import voluptuous as vol
 
 DOMAIN = "smartcloudage"
 
+## @brief Builds a form schema for editing and appending controllers.
+#  @param devices Existing controller configurations.
+#  @return Voluptuous schema containing current and new-controller fields.
 def build_devices_schema(devices=None):
     devices = devices or []
     schema_dict = {}
@@ -15,10 +18,16 @@ def build_devices_schema(devices=None):
     schema_dict[vol.Optional("new_alias")] = str
     return vol.Schema(schema_dict)
 
+## @brief Implements the legacy controller-list options flow.
 class SmartCloudAgeOptionsFlowHandler(config_entries.OptionsFlow):
+    ## @brief Stores the configuration entry being edited.
+    #  @param config_entry Existing SmartCloudAge configuration entry.
     def __init__(self, config_entry):
         self.config_entry = config_entry
 
+    ## @brief Displays and processes the controller-list form.
+    #  @param user_input Submitted controller values, or @c None on first display.
+    #  @return Form result or completed options entry.
     async def async_step_init(self, user_input=None):
         devices = self.config_entry.options.get("devices") or self.config_entry.data.get("devices") or []
         if user_input is not None:
@@ -43,5 +52,8 @@ class SmartCloudAgeOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=build_devices_schema(devices)
         )
 
+## @brief Creates the legacy options-flow handler for an existing entry.
+#  @param config_entry SmartCloudAge configuration entry.
+#  @return Initialized options-flow handler.
 async def async_get_options_flow(config_entry):
     return SmartCloudAgeOptionsFlowHandler(config_entry)

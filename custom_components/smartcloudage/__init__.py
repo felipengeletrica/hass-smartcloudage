@@ -16,6 +16,10 @@ WRITE = 1
 _LOGGER = logging.getLogger(__name__)
 
 
+## @brief Builds the command used to synchronize a controller's real-time clock.
+#  @param device_id Unique identifier of the target SmartCloudAge controller.
+#  @param signature Optional command signature; defaults to @p device_id.
+#  @return Dictionary containing the command, current local date/time and signature.
 def build_datetime_payload(device_id, signature=None):
     """Build the controller RTC synchronization command."""
     now = datetime.now()
@@ -38,6 +42,10 @@ def build_datetime_payload(device_id, signature=None):
     }
 
 
+## @brief Sets up a SmartCloudAge configuration entry.
+#  @param hass Active Home Assistant instance.
+#  @param entry SmartCloudAge configuration entry being loaded.
+#  @return @c True after platforms and periodic RTC synchronization are registered.
 async def async_setup_entry(hass, entry):
     """Set up SmartCloudAge from a config entry."""
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -45,6 +53,8 @@ async def async_setup_entry(hass, entry):
 
     devices = entry.options.get("devices", entry.data.get("devices", []))
 
+    ## @brief Publishes the current date and time to every configured controller.
+    #  @param _now Timestamp supplied by Home Assistant's interval tracker.
     async def send_datetime_to_devices(_now):
         for device in devices:
             device_id = device.get("device_id")
@@ -70,11 +80,18 @@ async def async_setup_entry(hass, entry):
     return True
 
 
+## @brief Unloads all platforms associated with a configuration entry.
+#  @param hass Active Home Assistant instance.
+#  @param entry SmartCloudAge configuration entry being unloaded.
+#  @return Whether every forwarded platform was successfully unloaded.
 async def async_unload_entry(hass, entry):
     """Unload a SmartCloudAge config entry."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
+## @brief Reloads a configuration entry after its options change.
+#  @param hass Active Home Assistant instance.
+#  @param entry Updated SmartCloudAge configuration entry.
 async def _async_reload_entry(hass, entry):
     """Reload entities after an options change."""
     await hass.config_entries.async_reload(entry.entry_id)

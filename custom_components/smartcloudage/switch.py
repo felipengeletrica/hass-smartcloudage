@@ -10,6 +10,10 @@ DOMAIN = "smartcloudage"
 DEFAULT_NAME = "SmartCloudAge Output"
 HARDCODED_TOPIC_PREFIX = "CloudAge/"
 
+## @brief Creates output switch entities and subscribes to controller status.
+#  @param hass Active Home Assistant instance.
+#  @param entry SmartCloudAge configuration entry.
+#  @param async_add_entities Callback used to register entities.
 async def async_setup_entry(hass, entry, async_add_entities):
     try:
         devices = entry.options.get("devices")
@@ -46,6 +50,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # Exemplo: listar aliases (pode usar para log ou debug)
     _LOGGER.info(f"Aliases cadastrados: {list(entities_by_alias.keys())}")
 
+    ## @brief Updates switch states from an MQTT controller status message.
+    #  @param msg MQTT message containing controller output state.
     async def message_received(msg):
         try:
             topic_parts = msg.topic.split("/")
@@ -96,7 +102,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 
+## @brief Represents one physical output of a SmartCloudAge controller.
 class SmartCloudOutputSwitch(SwitchEntity):
+    ## @brief Initializes an MQTT-backed controller output.
+    #  @param hass Active Home Assistant instance.
+    #  @param name Human-readable entity name.
+    #  @param output_id Zero-based output index.
+    #  @param base_topic MQTT command topic prefix.
+    #  @param device_id Unique controller identifier.
+    #  @param alias Optional human-readable controller alias.
     def __init__(self, hass, name, output_id, base_topic, device_id, alias=None):
         self.hass = hass
         self._attr_name = name
@@ -108,19 +122,27 @@ class SmartCloudOutputSwitch(SwitchEntity):
         self._attr_entity_category = EntityCategory.CONFIG
 
     @property
+    ## @brief Returns the current output state.
+    #  @return @c True when the output is on.
     def is_on(self):
         return self._state
 
+    ## @brief Publishes an ON command and updates the local state.
+    #  @param kwargs Additional Home Assistant service-call arguments.
     async def async_turn_on(self, **kwargs):
         await self._publish_mqtt(1)
         self._state = True
         self.async_write_ha_state()
 
+    ## @brief Publishes an OFF command and updates the local state.
+    #  @param kwargs Additional Home Assistant service-call arguments.
     async def async_turn_off(self, **kwargs):
         await self._publish_mqtt(0)
         self._state = False
         self.async_write_ha_state()
 
+    ## @brief Publishes an output command to the controller.
+    #  @param value Numeric output state, where 1 is on and 0 is off.
     async def _publish_mqtt(self, value):
         # Publica para topic: CloudAge/<device_id>
         topic = f"{self._base_topic}{self._device_id}"
@@ -143,11 +165,15 @@ class SmartCloudOutputSwitch(SwitchEntity):
         )
 
     @property
+    ## @brief Builds the persistent identifier for this output.
+    #  @return Unique Home Assistant entity identifier.
     def unique_id(self):
         # Use alias no unique_id para fácil identificação
         return f"smartcloudage_output_{self._alias}_{self._output_id + 1}"
 
     @property
+    ## @brief Links this switch to its SmartCloudAge controller device.
+    #  @return Home Assistant device-registry metadata.
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._device_id)},
