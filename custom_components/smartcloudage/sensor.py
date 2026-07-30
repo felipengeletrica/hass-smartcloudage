@@ -29,6 +29,9 @@ RSSI_WARNING_DBM = -75
 RSSI_CRITICAL_DBM = -85
 
 
+## @brief Classifies a Wi-Fi RSSI measurement.
+#  @param rssi Received signal strength in dBm.
+#  @return One of @c critical, @c poor, @c fair or @c good.
 def classify_rssi(rssi: int) -> str:
     """Classify Wi-Fi signal strength for diagnostics and alarms."""
     if rssi <= RSSI_CRITICAL_DBM:
@@ -40,6 +43,10 @@ def classify_rssi(rssi: int) -> str:
     return "good"
 
 
+## @brief Finds the first numeric telemetry value under a known firmware key.
+#  @param data Decoded MQTT payload.
+#  @param keys Candidate keys in priority order.
+#  @return Parsed numeric value, or @c None when no valid value exists.
 def _first_numeric(data: dict[str, Any], keys: tuple[str, ...]) -> float | None:
     """Return the first numeric telemetry value matching any known firmware key."""
     for key in keys:
@@ -53,6 +60,10 @@ def _first_numeric(data: dict[str, Any], keys: tuple[str, ...]) -> float | None:
     return None
 
 
+## @brief Creates pulse-counter and diagnostic sensor entities.
+#  @param hass Active Home Assistant instance.
+#  @param entry SmartCloudAge configuration entry.
+#  @param async_add_entities Callback used to register entities.
 async def async_setup_entry(hass, entry, async_add_entities):
     """Create configured pulse counter entities."""
     devices = entry.options.get("devices", entry.data.get("devices", []))
@@ -80,6 +91,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async_add_entities(entities)
 
+    ## @brief Processes telemetry received from a configured MQTT controller.
+    #  @param msg MQTT message containing JSON telemetry.
     async def message_received(msg):
         try:
             raw = msg.payload.decode("utf-8") if isinstance(msg.payload, bytes) else msg.payload
@@ -123,6 +136,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         entry.async_on_unload(unsubscribe)
 
 
+## @brief Base class for controller diagnostic sensors.
 class SmartCloudAgeDiagnosticSensor(SensorEntity):
     """Base diagnostic entity linked to a SmartCloudAge controller."""
 
@@ -130,6 +144,9 @@ class SmartCloudAgeDiagnosticSensor(SensorEntity):
     _attr_should_poll = False
 
     def __init__(self, device_id: str, alias: str) -> None:
+        ## @brief Initializes the controller identity and empty sensor state.
+        #  @param device_id Unique controller identifier.
+        #  @param alias Human-readable controller name.
         self._device_id = device_id
         self._alias = alias
         self._attr_native_value = None
@@ -145,6 +162,7 @@ class SmartCloudAgeDiagnosticSensor(SensorEntity):
         }
 
 
+## @brief Reports Wi-Fi strength and transition-based signal alarms.
 class SmartCloudAgeRSSISensor(SmartCloudAgeDiagnosticSensor):
     """Wi-Fi signal strength with transition-based alarms."""
 
@@ -153,6 +171,9 @@ class SmartCloudAgeRSSISensor(SmartCloudAgeDiagnosticSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, device_id: str, alias: str) -> None:
+        ## @brief Initializes a controller Wi-Fi signal sensor.
+        #  @param device_id Unique controller identifier.
+        #  @param alias Human-readable controller name.
         super().__init__(device_id, alias)
         self._attr_name = f"{alias} Sinal Wi-Fi"
         self._attr_unique_id = f"smartcloudage_{device_id}_wifi_rssi"
@@ -168,6 +189,8 @@ class SmartCloudAgeRSSISensor(SmartCloudAgeDiagnosticSensor):
             "critical_threshold_dbm": RSSI_CRITICAL_DBM,
         }
 
+    ## @brief Updates RSSI state and logs signal-quality transitions.
+    #  @param rssi New received signal strength in dBm.
     def update_rssi(self, rssi: int) -> None:
         """Update RSSI and log only signal quality transitions."""
         previous_quality = self._quality
@@ -198,6 +221,7 @@ class SmartCloudAgeRSSISensor(SmartCloudAgeDiagnosticSensor):
         self.async_write_ha_state()
 
 
+## @brief Reports controller uptime and detects counter regressions.
 class SmartCloudAgeUptimeSensor(SmartCloudAgeDiagnosticSensor):
     """Controller uptime with reboot detection."""
 
@@ -206,10 +230,15 @@ class SmartCloudAgeUptimeSensor(SmartCloudAgeDiagnosticSensor):
     _attr_suggested_unit_of_measurement = UnitOfTime.HOURS
 
     def __init__(self, device_id: str, alias: str) -> None:
+        ## @brief Initializes a controller uptime sensor.
+        #  @param device_id Unique controller identifier.
+        #  @param alias Human-readable controller name.
         super().__init__(device_id, alias)
         self._attr_name = f"{alias} Uptime"
         self._attr_unique_id = f"smartcloudage_{device_id}_uptime"
 
+    ## @brief Updates uptime and reports a probable controller restart.
+    #  @param uptime New controller uptime in seconds.
     def update_uptime(self, uptime: int) -> None:
         """Update uptime and report a controller restart."""
         previous_uptime = self._attr_native_value
@@ -224,6 +253,7 @@ class SmartCloudAgeUptimeSensor(SmartCloudAgeDiagnosticSensor):
         self.async_write_ha_state()
 
 
+## @brief Exposes an accumulated pulse counter as a native HA sensor.
 class SmartCloudAgePulseSensor(SensorEntity):
     """Accumulated pulse meter exposed as a native HA sensor."""
 
@@ -232,6 +262,10 @@ class SmartCloudAgePulseSensor(SensorEntity):
     _attr_should_poll = False
 
     def __init__(self, device_id: str, alias: str, meter: dict[str, Any]) -> None:
+        ## @brief Initializes conversion and identity settings for a pulse meter.
+        #  @param device_id Unique controller identifier.
+        #  @param alias Human-readable controller name.
+        #  @param meter Pulse channel, factor, offset, type, unit and name settings.
         self._device_id = device_id
         self._channel = int(meter["channel"])
         self._factor = float(meter.get("factor", 1.0))
@@ -267,6 +301,8 @@ class SmartCloudAgePulseSensor(SensorEntity):
             "model": "MQTT Controller",
         }
 
+    ## @brief Converts and publishes a new accumulated pulse count.
+    #  @param raw_pulses Unsigned accumulated pulse value received from firmware.
     def update_pulses(self, raw_pulses: int) -> None:
         """Apply the configured conversion factor and update HA."""
         self._raw_pulses = raw_pulses
