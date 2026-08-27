@@ -87,8 +87,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 outputs = int(outputs)
                 _LOGGER.debug("MQTT update topic=%s device=%s Outputs=%s", msg.topic, device_id, outputs)
                 for i, ent in enumerate(entities_by_device[device_id]):
-                    ent._state = bool((outputs >> i) & 1)
-                    ent.async_write_ha_state()
+                    ent.update_state_from_controller(bool((outputs >> i) & 1))
         except Exception as e:
             _LOGGER.error(f"Erro processando mensagem MQTT: {e}  Payload: {msg.payload}")
 
@@ -127,18 +126,20 @@ class SmartCloudOutputSwitch(SwitchEntity):
     def is_on(self):
         return self._state
 
-    ## @brief Publishes an ON command and updates the local state.
+    ## @brief Publishes an ON command; state changes only on controller feedback.
     #  @param kwargs Additional Home Assistant service-call arguments.
     async def async_turn_on(self, **kwargs):
         await self._publish_mqtt(1)
-        self._state = True
-        self.async_write_ha_state()
 
-    ## @brief Publishes an OFF command and updates the local state.
+    ## @brief Publishes an OFF command; state changes only on controller feedback.
     #  @param kwargs Additional Home Assistant service-call arguments.
     async def async_turn_off(self, **kwargs):
         await self._publish_mqtt(0)
-        self._state = False
+
+    ## @brief Applies an output state confirmed by the physical controller.
+    #  @param state Confirmed output state received through MQTT.
+    def update_state_from_controller(self, state):
+        self._state = state
         self.async_write_ha_state()
 
     ## @brief Publishes an output command to the controller.
