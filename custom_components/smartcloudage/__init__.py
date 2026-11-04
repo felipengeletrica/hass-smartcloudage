@@ -7,8 +7,10 @@ import logging
 from homeassistant.components import mqtt
 from homeassistant.helpers.event import async_track_time_interval
 
+from .air_conditioner import build_air_conditioners
+
 DOMAIN = "smartcloudage"
-PLATFORMS = ["switch", "sensor"]
+PLATFORMS = ["switch", "sensor", "climate"]
 SYNC_RTC_INTERVAL = 5
 CONFIG_DATE_TIME_ENUM = 9
 WRITE = 1
@@ -48,10 +50,15 @@ def build_datetime_payload(device_id, signature=None):
 #  @return @c True after platforms and periodic RTC synchronization are registered.
 async def async_setup_entry(hass, entry):
     """Set up SmartCloudAge from a config entry."""
+    devices = entry.options.get("devices", entry.data.get("devices", []))
+    senders, air_conditioners = build_air_conditioners(hass, devices)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        "ir_senders": senders,
+        "air_conditioners": air_conditioners,
+    }
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
-
-    devices = entry.options.get("devices", entry.data.get("devices", []))
 
     ## @brief Publishes the current date and time to every configured controller.
     #  @param _now Timestamp supplied by Home Assistant's interval tracker.
@@ -86,7 +93,12 @@ async def async_setup_entry(hass, entry):
 #  @return Whether every forwarded platform was successfully unloaded.
 async def async_unload_entry(hass, entry):
     """Unload a SmartCloudAge config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        data = hass.data.get(DOMAIN, {}).pop(entry.entry_id, {})
+        for sender in data.get("ir_senders", {}).values():
+            sender.async_stop()
+    return unloaded
 
 
 ## @brief Reloads a configuration entry after its options change.

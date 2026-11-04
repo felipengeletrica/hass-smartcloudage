@@ -10,6 +10,8 @@ from homeassistant.components import mqtt
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfTime, UnitOfVolume
 
+from .air_conditioner import is_ir_response
+
 DOMAIN = "smartcloudage"
 _LOGGER = logging.getLogger(__name__)
 
@@ -96,11 +98,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async def message_received(msg):
         try:
             raw = msg.payload.decode("utf-8") if isinstance(msg.payload, bytes) else msg.payload
+            if is_ir_response(raw):
+                return
             data = json.loads(raw)
 
             device_id = data.get("device") or msg.topic.split("/")[1]
             configured = entities_by_device.get(device_id)
-            if not configured:
+            # A controller without meters still has RSSI and uptime.
+            if configured is None:
                 return
 
             rssi_entity, uptime_entity = diagnostics_by_device[device_id]

@@ -34,13 +34,17 @@
   "options": {
     "step": {
       "init": {
-        "title": "Configurar medidores",
+        "title": "Configurar controladora",
         "menu_options": {
           "add_meter": "Adicionar medidor",
           "edit_meter": "Editar medidor",
           "delete_meter": "Excluir medidor",
+          "add_ac": "Adicionar ar-condicionado",
+          "edit_ac": "Editar ar-condicionado",
+          "delete_ac": "Excluir ar-condicionado",
           "finish": "Salvar e concluir"
-        }
+        },
+        "description": "Medidores de pulsos e aparelhos de ar-condicionado desta controladora."
       },
       "add_meter": {
         "title": "Adicionar medidor de pulsos",
@@ -86,14 +90,118 @@
         "data": {
           "confirm": "Confirmo a exclusão deste medidor"
         }
+      },
+      "ac": {
+        "title": "Ar-condicionado por infravermelho",
+        "description": "O emissor infravermelho fica numa das duas saídas PWM da controladora {controller}: escolha o canal em que ele está ligado e a marca do aparelho. Ao salvar, a integração confere se o firmware envia os quadros de ar-condicionado (2.0.4e ou superior).",
+        "data": {
+          "name": "Nome",
+          "brand": "Marca",
+          "ir_output": "Canal PWM do emissor IR",
+          "temperature_sensor": "Sensor de temperatura do ambiente (opcional)",
+          "skip_firmware_check": "Cadastrar sem verificar o firmware"
+        },
+        "data_description": {
+          "ir_output": "Canal da controladora onde o emissor SmartBeam está ligado.",
+          "temperature_sensor": "Mostrado como temperatura atual no termostato. O aparelho não informa a temperatura por infravermelho.",
+          "skip_firmware_check": "Ao salvar, a integração consulta o firmware da controladora pelo comando 32. Marque só se a controladora estiver desligada agora."
+        }
+      },
+      "ac_model": {
+        "title": "Modelo do controle remoto",
+        "description": "A marca {brand} usa protocolos diferentes conforme o controle remoto. Escolha o código impresso no controle ou na etiqueta do compartimento de pilhas.",
+        "data": {
+          "model": "Modelo do controle"
+        }
+      },
+      "edit_ac": {
+        "title": "Escolher ar-condicionado",
+        "data": {
+          "air_conditioner": "Ar-condicionado"
+        }
+      },
+      "delete_ac": {
+        "title": "Escolher ar-condicionado para excluir",
+        "data": {
+          "air_conditioner": "Ar-condicionado"
+        }
+      },
+      "confirm_delete_ac": {
+        "title": "Confirmar exclusão",
+        "description": "Excluir o ar-condicionado {name}? O dispositivo e as entidades dele serão removidos.",
+        "data": {
+          "confirm": "Confirmo a exclusão deste ar-condicionado"
+        }
       }
     },
     "error": {
       "channel_already_configured": "Este canal já possui um medidor.",
-      "factor_must_be_positive": "O fator deve ser maior que zero."
+      "factor_must_be_positive": "O fator deve ser maior que zero.",
+      "name_required": "Informe um nome.",
+      "firmware_no_segments": "O firmware desta controladora tem infravermelho, mas não envia os quadros de ar-condicionado. Atualize para 2.0.4e ou superior.",
+      "firmware_no_ir": "O firmware desta controladora não tem o comando infravermelho (32). Atualize para 2.0.4e ou superior.",
+      "controller_no_response": "A controladora não respondeu em 5 segundos. Verifique se ela está ligada e conectada ao broker, ou marque Cadastrar sem verificar o firmware."
     },
     "abort": {
-      "no_meters_configured": "Não existem medidores cadastrados."
+      "no_meters_configured": "Não existem medidores cadastrados.",
+      "no_acs_configured": "Não existem aparelhos de ar-condicionado cadastrados."
+    }
+  },
+  "entity": {
+    "climate": {
+      "air_conditioner": {
+        "state_attributes": {
+          "fan_mode": {
+            "state": {
+              "auto": "Automático",
+              "min": "Mínima",
+              "low": "Baixa",
+              "medium": "Média",
+              "high": "Alta",
+              "max": "Máxima"
+            }
+          },
+          "swing_mode": {
+            "state": {
+              "off": "Parada",
+              "on": "Oscilando",
+              "highest": "Mais alta",
+              "high": "Alta",
+              "middle": "Centro",
+              "low": "Baixa",
+              "lowest": "Mais baixa"
+            }
+          },
+          "swing_horizontal_mode": {
+            "state": {
+              "off": "Parada",
+              "on": "Oscilando",
+              "left_max": "Extrema esquerda",
+              "left": "Esquerda",
+              "middle": "Centro",
+              "right": "Direita",
+              "right_max": "Extrema direita"
+            }
+          },
+          "preset_mode": {
+            "state": {
+              "none": "Nenhum",
+              "eco": "Econômico",
+              "boost": "Turbo",
+              "sleep": "Sono",
+              "quiet": "Silencioso"
+            }
+          }
+        }
+      }
+    },
+    "switch": {
+      "ac_display": {
+        "name": "Display"
+      },
+      "ac_clean": {
+        "name": "Limpeza"
+      }
     }
   }
 }
