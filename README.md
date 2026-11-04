@@ -3,7 +3,7 @@
 [![Tests](https://github.com/felipengeletrica/hass-smartcloudage/actions/workflows/tests.yml/badge.svg)](https://github.com/felipengeletrica/hass-smartcloudage/actions/workflows/tests.yml)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.8.3%2B-18BCF2.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/felipengeletrica/hass-smartcloudage/releases)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/felipengeletrica/hass-smartcloudage/releases)
 
 Integração MQTT da **SmartCloudAge** para controle, medição e diagnóstico de controladoras no Home Assistant.
 
@@ -12,6 +12,7 @@ A integração cria entidades para as saídas da controladora, medidores acumula
 ## Recursos
 
 - Controle de até 16 saídas por controladora.
+- Controle de ar-condicionado pelo emissor infravermelho da controladora, com 15 marcas.
 - Leitura do estado atual das saídas via MQTT.
 - Cadastro de medidores de pulsos nos canais 1 a 16.
 - Medição acumulada de água e gás em `m³`.
@@ -247,6 +248,89 @@ Onde:
 - `value: 1` liga a saída;
 - `value: 0` desliga a saída.
 
+## Ar-condicionado por infravermelho
+
+A controladora com emissor infravermelho comanda aparelhos de ar-condicionado como o controle remoto original. Cada aparelho vira um dispositivo próprio no Home Assistant, ligado à controladora, com uma entidade `climate` (termostato) e, quando a marca permite, os interruptores **Display** e **Limpeza**.
+
+Os codificadores são uma tradução direta dos usados no SCA Command (`Commands/Hvac`), que por sua vez seguem a biblioteca IRremoteESP8266: o quadro enviado é bit a bit o mesmo. A suíte de testes confere a saída contra o programa C# em todos os modelos.
+
+Requer firmware **2.0.4e** ou superior (quadros segmentados do comando 32). O emissor SmartBeam fica num dos dois canais da controladora: **PWM1** ou **PWM2**.
+
+O passo a passo completo, com capturas, está no *Home Assistant — Guia de integração* (SCA-MAN-2026-1101), capítulo 7.
+
+### 1. Descubra o protocolo no SCA Command
+
+Antes de cadastrar no Home Assistant, descubra a marca e o modelo de protocolo que o split aceita pela aba **HVAC** do SCA Command (Manual do SCA Command, SCA-MAN-2026-0928, capítulo 9): escolha a **Saída IR** (PWM1 ou PWM2), a **Marca** e o **Modelo**, ligue em Resfriar a 24 °C e veja se o split reage. Se não reagir, troque o modelo e depois a marca: muitos aparelhos usam o protocolo de outro fabricante (um split com etiqueta Samsung, por exemplo, funcionou como LG GE6711AR2853M). Anote marca, modelo e canal que funcionaram.
+
+No Home Assistant, o teste serve só para validar a compatibilidade do que já funcionou no SCA Command.
+
+### 2. Adicione o split
+
+1. Acesse **Configurações → Dispositivos e serviços → SmartCloudAge** e clique na engrenagem **Configurar** da controladora do emissor.
+2. No menu **Configurar controladora**, escolha **Adicionar ar-condicionado**.
+3. Informe o nome, a **marca** e o **canal PWM** anotados (os dois não vêm pré-marcados) e, se quiser, um sensor de temperatura do ambiente. Clique em **Enviar**.
+4. A integração consulta a controladora e confere se o firmware envia os quadros de ar-condicionado. Para cadastrar com a controladora desligada, marque **Cadastrar sem verificar o firmware**.
+5. Nas marcas com mais de um protocolo, escolha o modelo do controle remoto e clique em **Enviar**.
+6. Valide pelo termostato: ligue em Resfriar a 24 °C, mude para 20 °C, mude a ventilação e desligue, conferindo o split a cada passo.
+
+### 3. Edite um split
+
+1. Na engrenagem **Configurar** da controladora, escolha **Editar ar-condicionado**.
+2. Marque o split e clique em **Enviar**.
+3. Mude nome, marca, canal ou sensor e clique em **Enviar**; se a marca tiver mais de um protocolo, escolha o modelo. O dispositivo, o termostato e o histórico continuam os mesmos.
+
+Para remover, use **Excluir ar-condicionado** e confirme: o dispositivo do split e as entidades dele são removidos.
+
+### Vários splits
+
+Cadastre um ar-condicionado por aparelho. Vários splits podem usar o mesmo canal quando usam **protocolos diferentes**: cada um responde só ao seu comando. Splits do **mesmo protocolo** ao alcance do mesmo emissor obedecem juntos, porque o infravermelho não tem endereço: use um emissor em PWM1 e outro em PWM2, ou controladoras diferentes.
+
+| Marca | Modelos do controle |
+|---|---|
+| LG | GE6711AR2853M, AKB75215403 (Dual Inverter) |
+| Samsung | AR |
+| Daikin | ARC433 |
+| Midea / Springer / Carrier | Midea |
+| Gree / Elgin | YAW1F, YBOFB, YX1FSF |
+| Panasonic | NKE, DKE, JKE, LKE, CKP, RKR |
+| Mitsubishi Electric | MSZ |
+| Fujitsu | ARRAH2E, ARDB1, ARREB1E, ARJW2, ARRY4, ARREW4E |
+| Electrolux | YKR-H/531E, EACM CL/N3 |
+| Hitachi | RAR-8P2, RF11T1, RAR-2P2, RAS-35THA6 |
+| Toshiba | RAS |
+| Coolix (Midea RG57, genéricos) | RG57 |
+| TCL | TAC09CHSD, GZ055BE1 |
+| Haier | YR-W02, V9014557 A, V9014557 B, KFR-26GW, HSU07-HEA03 |
+| Hisense | DG11R2-01 |
+
+### Funcionamento
+
+- Cada mudança envia o **estado completo** (liga/desliga, modo, temperatura, ventilação, aletas e funções), como o controle remoto. Se um comando se perder, o próximo deixa o aparelho no estado mostrado.
+- O infravermelho não tem retorno do aparelho. A integração espera só a confirmação da controladora (resposta do comando 32): sem confirmação em 5 segundos, o termostato volta ao estado anterior e a ação mostra erro.
+- O termostato oferece só os modos, velocidades e posições de aleta que o protocolo do modelo diferencia. Exemplo: o Hitachi RAR-8P2 não tem modo automático; no Samsung, a velocidade mínima e a baixa são o mesmo código.
+- Turbo, econômico, sono e silencioso aparecem como **predefinições** (uma de cada vez), conforme a marca.
+- A temperatura atual vem do sensor escolhido no cadastro; o aparelho não a informa.
+- Depois de reiniciar, o Home Assistant mostra o último estado enviado, sem transmitir nada.
+
+Comando MQTT publicado em `CloudAge/<device_id>`:
+
+```json
+{
+  "command": 32,
+  "type": 1,
+  "signature": "controller-01",
+  "payload": {
+    "mode": "protocol",
+    "frequency": 38000,
+    "bit_order": "LSB",
+    "one_mark_us": 586,
+    "segments": [{"data": "0x02920F000000F0", "nbits": 56, "header_mark_us": 3086}]
+  }
+}
+```
+
+(payload resumido; os campos completos são gerados pelos codificadores em `custom_components/smartcloudage/hvac/`).
+
 ## Exemplo de painel
 
 ```yaml
@@ -322,7 +406,11 @@ Os testes cobrem:
 - sincronização RTC;
 - classificação e transições de RSSI;
 - recuperação do sinal;
-- detecção de reinicialização por uptime.
+- detecção de reinicialização por uptime;
+- codificadores de ar-condicionado, comparados com a saída do SCA Command (`tests/fixtures/hvac_golden.tsv`);
+- termostato, confirmação do comando 32 e cadastro de ar-condicionado.
+
+Para regenerar a referência, rode no repositório do SCA Command `tools/ir-verify/gen_vectors.py` e o programa `tools/ir-verify/runner` (.NET 8) e junte cada vetor à linha correspondente da saída, separados por tabulação.
 
 O workflow em `.github/workflows/tests.yml` executa os testes automaticamente em pushes para `main` e em pull requests.
 
@@ -378,7 +466,10 @@ hass-smartcloudage/
 ├── .github/workflows/tests.yml
 ├── custom_components/smartcloudage/
 │   ├── __init__.py
+│   ├── air_conditioner.py
+│   ├── climate.py
 │   ├── config_flow.py
+│   ├── hvac/              # codificadores IR de ar-condicionado
 │   ├── manifest.json
 │   ├── sensor.py
 │   ├── switch.py
