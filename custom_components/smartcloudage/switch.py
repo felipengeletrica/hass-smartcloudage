@@ -3,6 +3,10 @@ import json
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.components import mqtt
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.restore_state import RestoreEntity
+
+from .air_conditioner import is_ir_response
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +49,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
             entities.append(entity)
             entities_by_device[device_id].append(entity)
             entities_by_alias[alias].append(entity)
+    units = hass.data.get(DOMAIN, {}).get(entry.entry_id, {}).get("air_conditioners", [])
+    option_switches = build_ac_option_switches(units)
+    remove_stale_ac_option_switches(hass, units, option_switches)
+    entities.extend(option_switches)
     async_add_entities(entities)
 
     # Exemplo: listar aliases (pode usar para log ou debug)
@@ -64,6 +72,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 return
 
             raw = msg.payload.decode("utf-8") if isinstance(msg.payload, bytes) else msg.payload
+            if is_ir_response(raw):
+                return
             data = json.loads(raw)
 
             # Desembrulha se "message" vier como JSON string (duplo-JSON)
@@ -182,3 +192,69 @@ class SmartCloudOutputSwitch(SwitchEntity):
             "manufacturer": "SmartCloudAge",
             "model": "MQTT Controller"
         }
+
+
+## @brief Removes option switches the A/C no longer has, e.g. after a brand change.
+#  @param hass Active Home Assistant instance.
+#  @param units Air conditioners of the config entry.
+#  @param option_switches Switches created for the current configuration.
+def remove_stale_ac_option_switches(hass, units, option_switches):
+    registry = er.async_get(hass)
+    kept = {switch.unique_id for switch in option_switches}
+    for unit in units:
+        for key in ("display", "clean"):
+            unique_id = f"{unit.unique_prefix}_{key}"
+            if unique_id in kept:
+                continue
+            entity_id = registry.async_get_entity_id("switch", DOMAIN, unique_id)
+            if entity_id is not None:
+                registry.async_remove(entity_id)
+
+
+## @brief Creates the display and clean switches of each air conditioner.
+#  @param units Air conditioners of the config entry.
+#  @return Switch entities for the options each brand supports.
+def build_ac_option_switches(units):
+    entities = []
+    for unit in units:
+        if unit.capabilities.supports_light:
+            entities.append(SmartCloudAgeAcOptionSwitch(unit, "light", "display"))
+        if unit.capabilities.supports_clean:
+            entities.append(SmartCloudAgeAcOptionSwitch(unit, "clean", "clean"))
+    return entities
+
+
+## @brief On/off option of an air conditioner, sent with the full A/C state.
+class SmartCloudAgeAcOptionSwitch(SwitchEntity, RestoreEntity):
+    _attr_has_entity_name = True
+    _attr_assumed_state = True
+    _attr_should_poll = False
+    _attr_entity_category = EntityCategory.CONFIG
+
+    ## @brief Links the switch to one flag of the A/C state.
+    #  @param unit Air conditioner that owns the option.
+    #  @param flag Field of the A/C state (@c light or @c clean).
+    #  @param key Translation and unique-ID key.
+    def __init__(self, unit, flag, key):
+        self.unit = unit
+        self._flag = flag
+        self._attr_translation_key = f"ac_{key}"
+        self._attr_unique_id = f"{unit.unique_prefix}_{key}"
+        self._attr_device_info = unit.device_info
+
+    @property
+    def is_on(self):
+        return getattr(self.unit.state, self._flag)
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        self.async_on_remove(self.unit.add_listener(self.async_write_ha_state))
+        last = await self.async_get_last_state()
+        if last is not None and last.state in ("on", "off"):
+            self.unit.restore(**{self._flag: last.state == "on"})
+
+    async def async_turn_on(self, **kwargs):
+        await self.unit.async_apply(**{self._flag: True})
+
+    async def async_turn_off(self, **kwargs):
+        await self.unit.async_apply(**{self._flag: False})

@@ -34,13 +34,17 @@
   "options": {
     "step": {
       "init": {
-        "title": "Configure meters",
+        "title": "Configure controller",
         "menu_options": {
           "add_meter": "Add meter",
           "edit_meter": "Edit meter",
           "delete_meter": "Delete meter",
+          "add_ac": "Add air conditioner",
+          "edit_ac": "Edit air conditioner",
+          "delete_ac": "Delete air conditioner",
           "finish": "Save and finish"
-        }
+        },
+        "description": "Pulse meters and air conditioners of this controller."
       },
       "add_meter": {
         "title": "Add pulse meter",
@@ -86,14 +90,118 @@
         "data": {
           "confirm": "I confirm deletion of this meter"
         }
+      },
+      "ac": {
+        "title": "Infrared air conditioner",
+        "description": "The infrared emitter sits on one of the two PWM outputs of controller {controller}: choose the channel it is wired to and the unit's brand. On save, the integration checks that the firmware sends air conditioner frames (2.0.4e or later).",
+        "data": {
+          "name": "Name",
+          "brand": "Brand",
+          "ir_output": "IR emitter PWM channel",
+          "temperature_sensor": "Room temperature sensor (optional)",
+          "skip_firmware_check": "Register without checking the firmware"
+        },
+        "data_description": {
+          "ir_output": "Controller channel the SmartBeam emitter is wired to.",
+          "temperature_sensor": "Shown as the current temperature on the thermostat. The unit does not report its temperature over infrared.",
+          "skip_firmware_check": "On save, the integration queries the controller firmware with command 32. Tick only if the controller is off right now."
+        }
+      },
+      "ac_model": {
+        "title": "Remote control model",
+        "description": "{brand} uses different protocols depending on the remote control. Choose the code printed on the remote or on the label inside the battery cover.",
+        "data": {
+          "model": "Remote model"
+        }
+      },
+      "edit_ac": {
+        "title": "Choose air conditioner",
+        "data": {
+          "air_conditioner": "Air conditioner"
+        }
+      },
+      "delete_ac": {
+        "title": "Choose air conditioner to delete",
+        "data": {
+          "air_conditioner": "Air conditioner"
+        }
+      },
+      "confirm_delete_ac": {
+        "title": "Confirm deletion",
+        "description": "Delete the air conditioner {name}? Its device and entities will be removed.",
+        "data": {
+          "confirm": "I confirm deleting this air conditioner"
+        }
       }
     },
     "error": {
       "channel_already_configured": "This channel already has a configured meter.",
-      "factor_must_be_positive": "The factor must be greater than zero."
+      "factor_must_be_positive": "The factor must be greater than zero.",
+      "name_required": "Enter a name.",
+      "firmware_no_segments": "This controller's firmware has infrared but cannot send air conditioner frames. Update to 2.0.4e or later.",
+      "firmware_no_ir": "This controller's firmware has no infrared command (32). Update to 2.0.4e or later.",
+      "controller_no_response": "The controller did not answer within 5 seconds. Check that it is on and connected to the broker, or tick Register without checking the firmware."
     },
     "abort": {
-      "no_meters_configured": "There are no configured meters."
+      "no_meters_configured": "There are no configured meters.",
+      "no_acs_configured": "No air conditioners are configured."
+    }
+  },
+  "entity": {
+    "climate": {
+      "air_conditioner": {
+        "state_attributes": {
+          "fan_mode": {
+            "state": {
+              "auto": "Auto",
+              "min": "Minimum",
+              "low": "Low",
+              "medium": "Medium",
+              "high": "High",
+              "max": "Maximum"
+            }
+          },
+          "swing_mode": {
+            "state": {
+              "off": "Fixed",
+              "on": "Swing",
+              "highest": "Highest",
+              "high": "High",
+              "middle": "Middle",
+              "low": "Low",
+              "lowest": "Lowest"
+            }
+          },
+          "swing_horizontal_mode": {
+            "state": {
+              "off": "Fixed",
+              "on": "Swing",
+              "left_max": "Far left",
+              "left": "Left",
+              "middle": "Middle",
+              "right": "Right",
+              "right_max": "Far right"
+            }
+          },
+          "preset_mode": {
+            "state": {
+              "none": "None",
+              "eco": "Eco",
+              "boost": "Turbo",
+              "sleep": "Sleep",
+              "quiet": "Quiet"
+            }
+          }
+        }
+      }
+    },
+    "switch": {
+      "ac_display": {
+        "name": "Display"
+      },
+      "ac_clean": {
+        "name": "Clean"
+      }
     }
   }
 }
