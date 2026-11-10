@@ -42,6 +42,10 @@
           "add_ac": "Add air conditioner",
           "edit_ac": "Edit air conditioner",
           "delete_ac": "Delete air conditioner",
+          "inputs": "Digital inputs (beta)",
+          "add_level": "Add tank level (beta)",
+          "edit_level": "Edit tank level",
+          "delete_level": "Delete tank level",
           "finish": "Save and finish"
         },
         "description": "Pulse meters and air conditioners of this controller."
@@ -132,6 +136,49 @@
         "data": {
           "confirm": "I confirm deleting this air conditioner"
         }
+      },
+      "inputs": {
+        "title": "Digital inputs (beta)",
+        "description": "Choose the inputs shown as binary sensors. To only read an input without driving an output, set it in the firmware as type 0 (not used), with about 2000 ms debounce for float switches.",
+        "data": {
+          "channels": "Inputs",
+          "invert": "Invert polarity (closed contact = off)"
+        }
+      },
+      "add_level": {
+        "title": "Tank level (beta)",
+        "description": "Enter the float switches as input:percent, comma-separated. Example: 1:25, 2:50, 3:75, 4:100. The level is the highest percent with an active switch.",
+        "data": {
+          "name": "Name",
+          "points": "Float switches (input:percent)"
+        }
+      },
+      "edit_level": {
+        "title": "Choose level",
+        "data": {
+          "level": "Level"
+        }
+      },
+      "edit_level_details": {
+        "title": "Edit tank level",
+        "description": "Float switches as input:percent, comma-separated.",
+        "data": {
+          "name": "Name",
+          "points": "Float switches (input:percent)"
+        }
+      },
+      "delete_level": {
+        "title": "Choose level to delete",
+        "data": {
+          "level": "Level"
+        }
+      },
+      "confirm_delete_level": {
+        "title": "Confirm deletion",
+        "description": "Delete level {name}? The entity is removed, but its history is kept.",
+        "data": {
+          "confirm": "I confirm deleting this level"
+        }
       }
     },
     "error": {
@@ -140,11 +187,13 @@
       "name_required": "Enter a name.",
       "firmware_no_segments": "This controller's firmware has infrared but cannot send air conditioner frames. Update to 2.0.4e or later.",
       "firmware_no_ir": "This controller's firmware has no infrared command (32). Update to 2.0.4e or later.",
-      "controller_no_response": "The controller did not answer within 5 seconds. Check that it is on and connected to the broker, or tick Register without checking the firmware."
+      "controller_no_response": "The controller did not answer within 5 seconds. Check that it is on and connected to the broker, or tick Register without checking the firmware.",
+      "invalid_level_points": "Invalid format. Use input:percent (inputs 1–16, percents 1–100, no repeats), e.g. 1:25, 2:50."
     },
     "abort": {
       "no_meters_configured": "There are no configured meters.",
-      "no_acs_configured": "No air conditioners are configured."
+      "no_acs_configured": "No air conditioners are configured.",
+      "no_levels_configured": "No levels configured."
     }
   },
   "entity": {

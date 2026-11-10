@@ -21,6 +21,7 @@ from .air_conditioner import (
     ir_output_gpio,
 )
 from .hvac import PROTOCOLS, brand_name, get_protocol
+from .inputs import INPUT_COUNT, format_level_points, parse_level_points
 
 DOMAIN = "smartcloudage"
 ## Form error for each firmware probe result that blocks the registration.
@@ -89,6 +90,48 @@ def meter_schema(defaults=None, *, include_add_another=True):
     if include_add_another:
         fields[vol.Required("add_another", default=False)] = bool
     return vol.Schema(fields)
+
+
+## @brief Builds the form that selects which inputs become binary sensors.
+#  @param defaults Current input settings (channels and polarity).
+#  @return Voluptuous schema with a multi-select of channels and the polarity.
+def inputs_schema(defaults=None):
+    """Build the digital inputs form."""
+    defaults = defaults or {}
+    return vol.Schema(
+        {
+            vol.Optional(
+                "channels",
+                default=[str(c) for c in defaults.get("channels", [])],
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[str(c) for c in range(1, INPUT_COUNT + 1)],
+                    multiple=True,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required("invert", default=bool(defaults.get("invert", False))): bool,
+        }
+    )
+
+
+## @brief Builds the form of a stepped level made of float switches.
+#  @param defaults Current level, or @c None for a new one.
+#  @return Voluptuous schema with name and "channel:percent" points.
+def level_schema(defaults=None):
+    """Build the level form."""
+    defaults = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required("name", default=defaults.get("name", "")): str,
+            vol.Required(
+                "points",
+                default=format_level_points(defaults["points"])
+                if defaults.get("points")
+                else "1:25, 2:50, 3:75, 4:100",
+            ): str,
+        }
+    )
 
 
 ## @brief Required field, pre-filled only when editing an existing value.
@@ -249,6 +292,7 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
         self._meter_index = None
         self._ac_index = None
         self._ac_draft = None
+        self._level_index = None
 
     ## @brief Displays the available meter-management operations.
     #  @param user_input Menu input supplied by Home Assistant.
@@ -264,6 +308,8 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
                     "air_conditioners": [
                         dict(unit) for unit in device.get("air_conditioners", [])
                     ],
+                    "inputs": dict(device.get("inputs") or {}),
+                    "levels": [dict(level) for level in device.get("levels", [])],
                 }
                 for device in source.get("devices", [])
             ]
@@ -276,6 +322,10 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
                 "add_ac",
                 "edit_ac",
                 "delete_ac",
+                "inputs",
+                "add_level",
+                "edit_level",
+                "delete_level",
                 "finish",
             ],
         )
@@ -564,6 +614,150 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             step_id="confirm_delete_ac",
             data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
             description_placeholders={"name": unit["name"]},
+        )
+
+    ## @brief Selects the inputs exposed as binary sensors and their polarity.
+    #  @param user_input Submitted values, or @c None on first display.
+    #  @return Inputs form or completed options entry.
+    async def async_step_inputs(self, user_input=None):
+        """Choose the inputs read by Home Assistant (read-only)."""
+        device = self._devices[0]
+        current = device.get("inputs") or {}
+        if user_input is not None:
+            channels = sorted({int(c) for c in user_input.get("channels", [])})
+            removed = set(int(c) for c in current.get("channels", [])) - set(channels)
+            entity_registry = er.async_get(self.hass)
+            for channel in removed:
+                entity_id = entity_registry.async_get_entity_id(
+                    "binary_sensor",
+                    DOMAIN,
+                    f"smartcloudage_{device.get('device_id')}_input_{channel}",
+                )
+                if entity_id is not None:
+                    entity_registry.async_remove(entity_id)
+            device["inputs"] = {"channels": channels, "invert": user_input["invert"]}
+            return self._save_options()
+        return self.async_show_form(step_id="inputs", data_schema=inputs_schema(current))
+
+    ## @brief Validates the submitted level and returns the stored form.
+    #  @param user_input Submitted name and points.
+    #  @param errors Dictionary filled with form errors.
+    #  @return Level data, or @c None when invalid.
+    def _validate_level(self, user_input, errors):
+        name = user_input["name"].strip()
+        if not name:
+            errors["name"] = "name_required"
+            return None
+        try:
+            points = parse_level_points(user_input["points"])
+        except ValueError:
+            errors["points"] = "invalid_level_points"
+            return None
+        return {"name": name, "points": points}
+
+    ## @brief Builds labels for the configured levels.
+    #  @return Mapping from level index to its name and points.
+    def _level_choices(self):
+        levels = self._devices[0].get("levels", [])
+        return {
+            index: f"{level['name']} ({format_level_points(level['points'])})"
+            for index, level in enumerate(levels)
+        }
+
+    ## @brief Adds a stepped level made of float switches.
+    #  @param user_input Submitted values, or @c None on first display.
+    #  @return Level form or completed options entry.
+    async def async_step_add_level(self, user_input=None):
+        """Add a level sensor."""
+        errors = {}
+        if user_input is not None:
+            level = self._validate_level(user_input, errors)
+            if level is not None:
+                level["id"] = uuid.uuid4().hex[:8]
+                self._devices[0].setdefault("levels", []).append(level)
+                return self._save_options()
+        return self.async_show_form(
+            step_id="add_level",
+            data_schema=self.add_suggested_values_to_schema(level_schema(), user_input)
+            if user_input
+            else level_schema(),
+            errors=errors,
+        )
+
+    ## @brief Lets the user choose a configured level for editing.
+    #  @param user_input Selected level index, or @c None on first display.
+    #  @return Selection form, edit form or abort result.
+    async def async_step_edit_level(self, user_input=None):
+        """Choose an existing level to edit."""
+        if not self._devices[0].get("levels"):
+            return self.async_abort(reason="no_levels_configured")
+        if user_input is not None:
+            self._level_index = int(user_input["level"])
+            return await self.async_step_edit_level_details()
+        return self.async_show_form(
+            step_id="edit_level",
+            data_schema=vol.Schema({vol.Required("level"): vol.In(self._level_choices())}),
+        )
+
+    ## @brief Validates and persists changes to the selected level.
+    #  @param user_input Updated values, or @c None on first display.
+    #  @return Edit form or completed options entry.
+    async def async_step_edit_level_details(self, user_input=None):
+        """Edit a level sensor."""
+        levels = self._devices[0]["levels"]
+        current = levels[self._level_index]
+        errors = {}
+        if user_input is not None:
+            level = self._validate_level(user_input, errors)
+            if level is not None:
+                level["id"] = current["id"]
+                levels[self._level_index] = level
+                self._level_index = None
+                return self._save_options()
+        return self.async_show_form(
+            step_id="edit_level_details",
+            data_schema=level_schema(current),
+            errors=errors,
+        )
+
+    ## @brief Lets the user choose a configured level for deletion.
+    #  @param user_input Selected level index, or @c None on first display.
+    #  @return Selection form, confirmation form or abort result.
+    async def async_step_delete_level(self, user_input=None):
+        """Choose an existing level to delete."""
+        if not self._devices[0].get("levels"):
+            return self.async_abort(reason="no_levels_configured")
+        if user_input is not None:
+            self._level_index = int(user_input["level"])
+            return await self.async_step_confirm_delete_level()
+        return self.async_show_form(
+            step_id="delete_level",
+            data_schema=vol.Schema({vol.Required("level"): vol.In(self._level_choices())}),
+        )
+
+    ## @brief Confirms deletion and removes the level entity.
+    #  @param user_input Confirmation submitted by the user.
+    #  @return Confirmation form or completed options entry.
+    async def async_step_confirm_delete_level(self, user_input=None):
+        """Confirm and delete the selected level."""
+        levels = self._devices[0]["levels"]
+        level = levels[self._level_index]
+        if user_input is not None and user_input["confirm"]:
+            entity_registry = er.async_get(self.hass)
+            entity_id = entity_registry.async_get_entity_id(
+                "sensor",
+                DOMAIN,
+                f"smartcloudage_{self._devices[0].get('device_id')}_level_{level['id']}",
+            )
+            if entity_id is not None:
+                entity_registry.async_remove(entity_id)
+            levels.pop(self._level_index)
+            self._level_index = None
+            return self._save_options()
+        return self.async_show_form(
+            step_id="confirm_delete_level",
+            data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
+            description_placeholders={"name": level["name"]},
         )
 
     ## @brief Closes the options flow without changing the working data.

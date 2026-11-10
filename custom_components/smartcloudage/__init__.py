@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 import json
 import logging
+from pathlib import Path
 
 from homeassistant.components import mqtt
 from homeassistant.helpers.event import async_track_time_interval
@@ -10,10 +11,13 @@ from homeassistant.helpers.event import async_track_time_interval
 from .air_conditioner import build_air_conditioners
 
 DOMAIN = "smartcloudage"
-PLATFORMS = ["switch", "sensor", "climate"]
+PLATFORMS = ["switch", "sensor", "binary_sensor", "climate"]
 SYNC_RTC_INTERVAL = 5
 CONFIG_DATE_TIME_ENUM = 9
 WRITE = 1
+## URL of the tank Lovelace card served by this integration.
+TANK_CARD_URL = "/smartcloudage/smartcloudage-tank-card.js"
+TANK_CARD_PATH = Path(__file__).parent / "frontend" / "smartcloudage-tank-card.js"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +48,30 @@ def build_datetime_payload(device_id, signature=None):
     }
 
 
+## @brief Serves the tank card and loads it in every dashboard (once per HA run).
+#  @param hass Active Home Assistant instance.
+async def _async_register_frontend(hass):
+    """Register the custom:smartcloudage-tank-card resource."""
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if domain_data.get("_frontend_registered"):
+        return
+    if getattr(hass, "http", None) is None or "frontend" not in hass.config.components:
+        return
+    try:
+        from homeassistant.components.frontend import add_extra_js_url
+        from homeassistant.components.http import StaticPathConfig
+        from homeassistant.loader import async_get_integration
+
+        integration = await async_get_integration(hass, DOMAIN)
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(TANK_CARD_URL, str(TANK_CARD_PATH), True)]
+        )
+        add_extra_js_url(hass, f"{TANK_CARD_URL}?v={integration.version}")
+        domain_data["_frontend_registered"] = True
+    except Exception as err:  # noqa: BLE001 - the card is optional
+        _LOGGER.warning("Could not register the SmartCloudAge tank card: %s", err)
+
+
 ## @brief Sets up a SmartCloudAge configuration entry.
 #  @param hass Active Home Assistant instance.
 #  @param entry SmartCloudAge configuration entry being loaded.
@@ -51,6 +79,7 @@ def build_datetime_payload(device_id, signature=None):
 async def async_setup_entry(hass, entry):
     """Set up SmartCloudAge from a config entry."""
     devices = entry.options.get("devices", entry.data.get("devices", []))
+    await _async_register_frontend(hass)
     senders, air_conditioners = build_air_conditioners(hass, devices)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
         "ir_senders": senders,

@@ -7,10 +7,16 @@ import logging
 from typing import Any
 
 from homeassistant.components import mqtt
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
-from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfTime, UnitOfVolume
+from homeassistant.components.sensor import (
+    RestoreSensor,
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfEnergy, UnitOfTime, UnitOfVolume
 
 from .air_conditioner import is_ir_response
+from .inputs import channel_active, compute_level, decode_payload, input_mask
 
 DOMAIN = "smartcloudage"
 _LOGGER = logging.getLogger(__name__)
@@ -73,6 +79,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     diagnostics_by_device: dict[
         str, tuple[SmartCloudAgeRSSISensor, SmartCloudAgeUptimeSensor]
     ] = {}
+    levels_by_device: dict[str, list[SmartCloudAgeLevelSensor]] = {}
     entities = []
 
     for device in devices:
@@ -90,6 +97,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
             entity = SmartCloudAgePulseSensor(device_id, alias, meter)
             channel_entities[channel] = entity
             entities.append(entity)
+        invert = bool((device.get("inputs") or {}).get("invert", False))
+        for level in device.get("levels", []):
+            level_entity = SmartCloudAgeLevelSensor(device_id, alias, level, invert)
+            levels_by_device.setdefault(device_id, []).append(level_entity)
+            entities.append(level_entity)
 
     async_add_entities(entities)
 
@@ -116,6 +128,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
             uptime = _first_numeric(data, ("uptime", "Uptime", "UPTIME"))
             if uptime is not None and uptime >= 0:
                 uptime_entity.update_uptime(round(uptime))
+
+            level_entities = levels_by_device.get(device_id)
+            if level_entities:
+                mask = input_mask(decode_payload(raw))
+                if mask is not None:
+                    for level_entity in level_entities:
+                        level_entity.update_mask(mask)
+                    return
 
             if str(data.get("message", "")).upper() != "PULSE_SENSOR":
                 return
@@ -314,4 +334,83 @@ class SmartCloudAgePulseSensor(SensorEntity):
         self._attr_native_value = round(
             raw_pulses * self._factor + self._offset, 9
         )
+        self.async_write_ha_state()
+
+
+## @brief Stepped tank level computed from float switches on the inputs (beta).
+class SmartCloudAgeLevelSensor(RestoreSensor):
+    """Level in percent from float switches wired to the controller inputs."""
+
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:waves-arrow-up"
+    _attr_should_poll = False
+
+    def __init__(
+        self, device_id: str, alias: str, level: dict[str, Any], invert: bool
+    ) -> None:
+        ## @brief Initializes a level sensor.
+        #  @param device_id Unique controller identifier.
+        #  @param alias Human-readable controller name.
+        #  @param level Stored level: id, name and channel/percent points.
+        #  @param invert Swap the meaning of every input bit.
+        self._device_id = device_id
+        self._alias = alias
+        self._points = sorted(
+            ({"channel": int(p["channel"]), "percent": int(p["percent"])} for p in level["points"]),
+            key=lambda p: p["percent"],
+        )
+        self._invert = invert
+        self._consistent = None
+        self._active_channels: list[int] = []
+        self._attr_name = level.get("name") or f"{alias} Nível"
+        self._attr_unique_id = f"smartcloudage_{device_id}_level_{level['id']}"
+        self._attr_native_value = None
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the last level: the firmware only publishes on change."""
+        await super().async_added_to_hass()
+        last = await self.async_get_last_sensor_data()
+        if last is not None and last.native_value is not None:
+            self._attr_native_value = last.native_value
+
+    @property
+    def extra_state_attributes(self):
+        """Expose the float switches so a card can draw them."""
+        return {
+            "points": self._points,
+            "active_channels": self._active_channels,
+            "consistent": self._consistent,
+            "inverted": self._invert,
+        }
+
+    @property
+    def device_info(self):
+        """Link the level to its controller."""
+        return {
+            "identifiers": {(DOMAIN, self._device_id)},
+            "name": f"SmartCloudAge {self._alias}",
+            "manufacturer": "SmartCloudAge",
+            "model": "MQTT Controller",
+        }
+
+    ## @brief Recomputes the level from an INPUT_STATUS mask.
+    #  @param mask Input mask from the controller.
+    def update_mask(self, mask: int) -> None:
+        """Apply a new input mask."""
+        level, consistent = compute_level(mask, self._points, self._invert)
+        active = [
+            p["channel"]
+            for p in self._points
+            if channel_active(mask, p["channel"], self._invert)
+        ]
+        if not consistent and self._consistent is not False:
+            _LOGGER.warning(
+                "SmartCloudAge %s: float switches disagree (active inputs %s); check for a stuck switch",
+                self._attr_name,
+                active,
+            )
+        self._attr_native_value = level
+        self._consistent = consistent
+        self._active_channels = active
         self.async_write_ha_state()

@@ -248,6 +248,39 @@ Onde:
 - `value: 1` liga a saída;
 - `value: 0` desliga a saída.
 
+## Entradas digitais e nível de tanque (beta)
+
+> Recurso em beta (1.4.0b1), no branch `feature/input-level-beta`.
+
+A integração lê a mensagem `INPUT_STATUS` que a controladora já publica em `CloudAge/<id>/OutTopic/`. Ela traz um bitmask das 16 entradas: a entrada 1 é o bit 0. Nada muda no firmware.
+
+**No firmware**, configure cada entrada usada só para leitura como **tipo 0 (não usada)**. Assim ela não aciona nenhuma saída. Para boias, use debounce de uns 2000 ms:
+
+```
+{'command': 2, 'type': 1, 'signature': '<sig>', 'payload': {'id': 1, 'type': 0, 'debounce': 2000}}
+```
+
+**Na integração** (*Configurar* da controladora):
+
+- **Entradas digitais**: escolha as entradas que viram `binary_sensor` (`<alias> Entrada N`). *Inverter polaridade* troca ligado/desligado em todas elas.
+- **Adicionar nível de tanque**: informe as boias como `entrada:percentual`, por exemplo `1:25, 2:50, 3:75, 4:100`. O sensor mostra o maior percentual com boia ativa (0 % sem nenhuma). O atributo `consistent` fica `false` e um aviso vai para o log quando uma boia alta está ativa e uma mais baixa não, o que indica boia travada.
+
+As entidades restauram o último estado ao reiniciar o Home Assistant, porque o firmware só publica `INPUT_STATUS` quando alguma entrada muda ou no boot.
+
+### Card de tanque animado
+
+A integração serve e carrega sozinha o card `custom:smartcloudage-tank-card`, sem instalar nada pelo HACS. A água sobe e desce animada até o nível, a superfície ondula e cada boia aparece marcada na lateral (verde quando ativa):
+
+```yaml
+type: custom:smartcloudage-tank-card
+entity: sensor.caixa_dagua
+name: Caixa d'água      # opcional
+color: "#039be5"        # opcional
+alert_below: 25         # opcional: água em vermelho neste nível ou abaixo
+```
+
+Se o card não aparecer depois de atualizar, recarregue o navegador com Ctrl+F5.
+
 ## Ar-condicionado por infravermelho
 
 A controladora com emissor infravermelho comanda aparelhos de ar-condicionado como o controle remoto original. Cada aparelho vira um dispositivo próprio no Home Assistant, ligado à controladora, com uma entidade `climate` (termostato) e, quando a marca permite, os interruptores **Display** e **Limpeza**.

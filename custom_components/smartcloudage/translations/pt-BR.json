@@ -42,6 +42,10 @@
           "add_ac": "Adicionar ar-condicionado",
           "edit_ac": "Editar ar-condicionado",
           "delete_ac": "Excluir ar-condicionado",
+          "inputs": "Entradas digitais (beta)",
+          "add_level": "Adicionar nível de tanque (beta)",
+          "edit_level": "Editar nível de tanque",
+          "delete_level": "Excluir nível de tanque",
           "finish": "Salvar e concluir"
         },
         "description": "Medidores de pulsos e aparelhos de ar-condicionado desta controladora."
@@ -132,6 +136,49 @@
         "data": {
           "confirm": "Confirmo a exclusão deste ar-condicionado"
         }
+      },
+      "inputs": {
+        "title": "Entradas digitais (beta)",
+        "description": "Escolha as entradas que aparecem como sensores binários. Para só ler a entrada, sem acionar saída, configure-a no firmware como tipo 0 (não usada) com debounce de uns 2000 ms para boias.",
+        "data": {
+          "channels": "Entradas",
+          "invert": "Inverter polaridade (contato fechado = desligado)"
+        }
+      },
+      "add_level": {
+        "title": "Nível de tanque (beta)",
+        "description": "Informe as boias como entrada:percentual, separadas por vírgula. Exemplo: 1:25, 2:50, 3:75, 4:100. O nível é o maior percentual com boia ativa.",
+        "data": {
+          "name": "Nome",
+          "points": "Boias (entrada:percentual)"
+        }
+      },
+      "edit_level": {
+        "title": "Escolher nível",
+        "data": {
+          "level": "Nível"
+        }
+      },
+      "edit_level_details": {
+        "title": "Editar nível de tanque",
+        "description": "Boias como entrada:percentual, separadas por vírgula.",
+        "data": {
+          "name": "Nome",
+          "points": "Boias (entrada:percentual)"
+        }
+      },
+      "delete_level": {
+        "title": "Escolher nível para excluir",
+        "data": {
+          "level": "Nível"
+        }
+      },
+      "confirm_delete_level": {
+        "title": "Confirmar exclusão",
+        "description": "Excluir o nível {name}? A entidade será removida, mas o histórico não será apagado.",
+        "data": {
+          "confirm": "Confirmo a exclusão deste nível"
+        }
       }
     },
     "error": {
@@ -140,11 +187,13 @@
       "name_required": "Informe um nome.",
       "firmware_no_segments": "O firmware desta controladora tem infravermelho, mas não envia os quadros de ar-condicionado. Atualize para 2.0.4e ou superior.",
       "firmware_no_ir": "O firmware desta controladora não tem o comando infravermelho (32). Atualize para 2.0.4e ou superior.",
-      "controller_no_response": "A controladora não respondeu em 5 segundos. Verifique se ela está ligada e conectada ao broker, ou marque Cadastrar sem verificar o firmware."
+      "controller_no_response": "A controladora não respondeu em 5 segundos. Verifique se ela está ligada e conectada ao broker, ou marque Cadastrar sem verificar o firmware.",
+      "invalid_level_points": "Formato inválido. Use entrada:percentual (entradas 1–16, percentuais 1–100, sem repetir), por exemplo 1:25, 2:50."
     },
     "abort": {
       "no_meters_configured": "Não existem medidores cadastrados.",
-      "no_acs_configured": "Não existem aparelhos de ar-condicionado cadastrados."
+      "no_acs_configured": "Não existem aparelhos de ar-condicionado cadastrados.",
+      "no_levels_configured": "Não existem níveis cadastrados."
     }
   },
   "entity": {
