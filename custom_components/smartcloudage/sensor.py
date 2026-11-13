@@ -27,6 +27,18 @@ NATIVE_UNITS = {
     "energy": UnitOfEnergy.KILO_WATT_HOUR,
 }
 
+## @brief Rebuilds a pulse counter from a PULSE_SENSOR item.
+#  @param lsb Low 32 bits of the counter ("lsb").
+#  @param msb High 32 bits of the counter ("msb").
+#  @return Counter value: msb * 2^32 + lsb.
+#
+#  The firmware keeps a 64-bit counter and splits it into two 32-bit halves.
+#  Masking the halves to 16 bits made the reading wrap after 65535 pulses.
+def decode_pulse_count(lsb: Any, msb: Any) -> int:
+    """Combine the 32-bit halves of a firmware pulse counter."""
+    return ((int(msb) & 0xFFFFFFFF) << 32) | (int(lsb) & 0xFFFFFFFF)
+
+
 RSSI_WARNING_DBM = -75
 RSSI_CRITICAL_DBM = -85
 
@@ -125,9 +137,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 entity = configured.get(channel)
                 if entity is None:
                     continue
-                lsb = int(pulse.get("lsb", 0)) & 0xFFFF
-                msb = int(pulse.get("msb", 0)) & 0xFFFF
-                entity.update_pulses((msb << 16) | lsb)
+                entity.update_pulses(decode_pulse_count(pulse.get("lsb", 0), pulse.get("msb", 0)))
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as err:
             _LOGGER.warning("Invalid SmartCloudAge pulse payload on %s: %s", msg.topic, err)
 
