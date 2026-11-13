@@ -55,3 +55,34 @@ async def test_ir_status_reply_is_not_logged_as_invalid(hass, caplog):
         await switch_callback(_msg(IR_STATUS))
 
     assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+
+
+def test_pulse_count_uses_32_bit_halves():
+    assert sensor.decode_pulse_count(70321, 0) == 70321
+    assert sensor.decode_pulse_count("65536", "0") == 65536
+    assert sensor.decode_pulse_count(5, 1) == (1 << 32) + 5
+
+
+async def test_pulse_counter_above_16_bits_is_not_truncated(hass):
+    entry = Mock(
+        entry_id="e1",
+        options={},
+        data={"devices": [{"device_id": DEVICE, "outputs": 2, "meters": [{"channel": 1, "type": "water"}]}]},
+    )
+    added = []
+    with patch.object(sensor.mqtt, "async_subscribe", new_callable=AsyncMock, return_value=Mock()) as sub:
+        await sensor.async_setup_entry(hass, entry, added.extend)
+    for entity in added:
+        entity.hass = hass
+        entity.async_write_ha_state = Mock()
+    callback = sub.call_args.args[2]
+
+    # Firmware 2.0.11a: lsb/msb are the low/high 32 bits of a 64-bit counter.
+    pulses = {
+        "product": 1, "protocol": "0.4.3", "firmware": "2.0.11a", "serial": "CA22610030425", "device": DEVICE,
+        "message": "PULSE_SENSOR", "Pulses": [{"Sensor": 1, "lsb": 70321, "msb": 0}],
+    }
+    await callback(_msg(json.dumps(pulses)))
+
+    meter = next(e for e in added if isinstance(e, sensor.SmartCloudAgePulseSensor))
+    assert meter.extra_state_attributes["raw_pulses"] == 70321

@@ -3,7 +3,7 @@
 [![Tests](https://github.com/felipengeletrica/hass-smartcloudage/actions/workflows/tests.yml/badge.svg)](https://github.com/felipengeletrica/hass-smartcloudage/actions/workflows/tests.yml)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.8.3%2B-18BCF2.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/felipengeletrica/hass-smartcloudage/releases)
+[![Version](https://img.shields.io/badge/version-1.3.1-blue.svg)](https://github.com/felipengeletrica/hass-smartcloudage/releases)
 
 Integração MQTT da **SmartCloudAge** para controle, medição e diagnóstico de controladoras no Home Assistant.
 
