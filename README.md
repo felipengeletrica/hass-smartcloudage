@@ -13,6 +13,7 @@ A integração cria entidades para as saídas da controladora, medidores acumula
 
 - Controle de até 16 saídas por controladora.
 - Controle de ar-condicionado pelo emissor infravermelho da controladora, com 15 marcas.
+- Controle remoto de TV pelo mesmo emissor (beta): Samsung, LG, Sony, Philips e Panasonic.
 - Leitura do estado atual das saídas via MQTT.
 - Cadastro de medidores de pulsos nos canais 1 a 16.
 - Medição acumulada de água e gás em `m³`.
@@ -331,6 +332,59 @@ Comando MQTT publicado em `CloudAge/<device_id>`:
 
 (payload resumido; os campos completos são gerados pelos codificadores em `custom_components/smartcloudage/hvac/`).
 
+## TV por infravermelho (beta)
+
+> **Beta.** Disponível a partir da 1.4.0-beta.1. Os códigos são os conhecidos de cada marca, mas variam por modelo: confira as teclas na sua TV antes de usar em automações.
+
+O mesmo emissor do ar-condicionado comanda a TV como o controle remoto original. Cada TV vira um dispositivo próprio, ligado à controladora, com:
+
+- uma entidade **`remote`**: qualquer tecla pelo nome, em scripts e automações;
+- um **botão por tecla**. As do dia a dia (liga/desliga, fonte, mudo, volume, canal, setas, OK, voltar, início e sair) vêm **habilitadas**; números e mídia (play, pausa…) vêm **desabilitados** e podem ser ativados um a um na página do dispositivo, como no controle *Simplificado* e *Completo* do SCA Command.
+
+| Modelo | Protocolo |
+|---|---|
+| TV Samsung | Samsung 32 bits |
+| TV LG | NEC |
+| TV Sony | Sony SIRC 12 bits |
+| TV Philips (RC-6) | Philips RC-6 (modelos recentes) |
+| TV Philips (RC-5) | Philips RC-5 (modelos antigos; sem setas) |
+| TV Panasonic | Panasonic (Kaseikyo) |
+
+Os quadros são os mesmos da aba **Controle remoto** do SCA Command: a suíte de testes compara cada tecla de cada modelo com o programa C#. Teste primeiro no SCA Command para saber qual modelo a sua TV aceita.
+
+Requer firmware com o comando infravermelho (32): **2.0.4** ou superior.
+
+### Adicione a TV
+
+1. Em **Configurações → Dispositivos e serviços → SmartCloudAge**, clique em **Configurar** na controladora do emissor.
+2. Escolha **Adicionar TV (beta)**.
+3. Informe o nome, o **modelo do controle** e o **canal PWM** do emissor e clique em **Enviar**. A integração confere se o firmware tem o comando infravermelho (para cadastrar com a controladora desligada, marque **Cadastrar sem verificar o firmware**).
+
+**Editar TV** troca nome, modelo ou canal mantendo o dispositivo; **Excluir TV** remove o dispositivo e as entidades.
+
+### Teclas no `remote.send_command`
+
+`power`, `power_on`, `power_off`, `input`, `mute`, `volume_up`, `volume_down`, `channel_up`, `channel_down`, `up`, `down`, `left`, `right`, `ok`, `menu`, `home`, `back`, `exit`, `info`, `0` a `9` (ou `digit_0` a `digit_9`), `play`, `pause`, `stop`, `fast_forward`, `rewind`. Maiúsculas, espaços e hífens são ignorados (`Volume Up` = `volume_up`). O atributo `keys` da entidade lista as teclas que o modelo escolhido tem; uma tecla que ele não tem é recusada antes de enviar qualquer coisa.
+
+```yaml
+# Canal 12 e aumentar o volume duas vezes
+action: remote.send_command
+target:
+  entity_id: remote.tv_da_sala
+data:
+  command: ["1", "2", "ok"]
+---
+action: remote.send_command
+target:
+  entity_id: remote.tv_da_sala
+data:
+  command: volume_up
+  num_repeats: 2
+  delay_secs: 0.4
+```
+
+`remote.turn_on` e `remote.turn_off` usam as teclas **Ligar**/**Desligar** quando o modelo tem (Samsung, LG, Sony) e o **Liga/desliga** nos demais. Como o infravermelho não tem retorno, o estado ligado/desligado é o último enviado.
+
 ## Exemplo de painel
 
 ```yaml
@@ -467,12 +521,16 @@ hass-smartcloudage/
 ├── custom_components/smartcloudage/
 │   ├── __init__.py
 │   ├── air_conditioner.py
+│   ├── button.py          # teclas da TV (beta)
 │   ├── climate.py
 │   ├── config_flow.py
 │   ├── hvac/              # codificadores IR de ar-condicionado
 │   ├── manifest.json
+│   ├── remote.py          # controle remoto da TV (beta)
 │   ├── sensor.py
 │   ├── switch.py
+│   ├── tv_codes.py        # códigos e quadros IR das TVs (beta)
+│   ├── tv_remote.py
 │   ├── strings.json
 │   └── translations/
 ├── tests/

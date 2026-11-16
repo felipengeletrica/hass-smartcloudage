@@ -42,9 +42,12 @@
           "add_ac": "Adicionar ar-condicionado",
           "edit_ac": "Editar ar-condicionado",
           "delete_ac": "Excluir ar-condicionado",
+          "add_tv": "Adicionar TV (beta)",
+          "edit_tv": "Editar TV",
+          "delete_tv": "Excluir TV",
           "finish": "Salvar e concluir"
         },
-        "description": "Medidores de pulsos e aparelhos de ar-condicionado desta controladora."
+        "description": "Medidores de pulsos, aparelhos de ar-condicionado e TVs desta controladora."
       },
       "add_meter": {
         "title": "Adicionar medidor de pulsos",
@@ -132,6 +135,39 @@
         "data": {
           "confirm": "Confirmo a exclusão deste ar-condicionado"
         }
+      },
+      "tv": {
+        "title": "TV por infravermelho (beta)",
+        "description": "O emissor infravermelho fica numa das duas saídas PWM da controladora {controller}. Escolha o modelo do controle e o canal do emissor. A TV ganha uma entidade de controle remoto (remote.send_command com o nome da tecla) e um botão por tecla: os do dia a dia vêm habilitados; números e mídia vêm desabilitados e podem ser ativados na página do dispositivo. Os códigos variam por modelo: confira as teclas na sua TV.",
+        "data": {
+          "name": "Nome",
+          "preset": "Modelo do controle",
+          "ir_output": "Canal PWM do emissor IR",
+          "skip_firmware_check": "Cadastrar sem verificar o firmware"
+        },
+        "data_description": {
+          "ir_output": "Canal da controladora onde o emissor SmartBeam está ligado.",
+          "skip_firmware_check": "Ao salvar, a integração consulta o firmware da controladora pelo comando 32. Marque só se a controladora estiver desligada agora."
+        }
+      },
+      "edit_tv": {
+        "title": "Escolher TV",
+        "data": {
+          "tv_remote": "TV"
+        }
+      },
+      "delete_tv": {
+        "title": "Excluir TV",
+        "data": {
+          "tv_remote": "TV"
+        }
+      },
+      "confirm_delete_tv": {
+        "title": "Confirmar exclusão",
+        "description": "Excluir a TV {name}? O dispositivo e as entidades dela serão removidos.",
+        "data": {
+          "confirm": "Confirmo a exclusão desta TV"
+        }
       }
     },
     "error": {
@@ -144,7 +180,8 @@
     },
     "abort": {
       "no_meters_configured": "Não existem medidores cadastrados.",
-      "no_acs_configured": "Não existem aparelhos de ar-condicionado cadastrados."
+      "no_acs_configured": "Não existem aparelhos de ar-condicionado cadastrados.",
+      "no_tvs_configured": "Não existem TVs cadastradas."
     }
   },
   "entity": {
@@ -201,6 +238,115 @@
       },
       "ac_clean": {
         "name": "Limpeza"
+      }
+    },
+    "remote": {
+      "tv_remote": {
+        "name": "Controle"
+      }
+    },
+    "button": {
+      "key_power": {
+        "name": "Liga/desliga"
+      },
+      "key_power_on": {
+        "name": "Ligar"
+      },
+      "key_power_off": {
+        "name": "Desligar"
+      },
+      "key_input": {
+        "name": "Fonte"
+      },
+      "key_mute": {
+        "name": "Mudo"
+      },
+      "key_volume_up": {
+        "name": "Volume +"
+      },
+      "key_volume_down": {
+        "name": "Volume −"
+      },
+      "key_channel_up": {
+        "name": "Canal +"
+      },
+      "key_channel_down": {
+        "name": "Canal −"
+      },
+      "key_up": {
+        "name": "Cima"
+      },
+      "key_down": {
+        "name": "Baixo"
+      },
+      "key_left": {
+        "name": "Esquerda"
+      },
+      "key_right": {
+        "name": "Direita"
+      },
+      "key_ok": {
+        "name": "OK"
+      },
+      "key_menu": {
+        "name": "Menu"
+      },
+      "key_home": {
+        "name": "Início"
+      },
+      "key_back": {
+        "name": "Voltar"
+      },
+      "key_exit": {
+        "name": "Sair"
+      },
+      "key_info": {
+        "name": "Info"
+      },
+      "key_play": {
+        "name": "Play"
+      },
+      "key_pause": {
+        "name": "Pausa"
+      },
+      "key_stop": {
+        "name": "Parar"
+      },
+      "key_fast_forward": {
+        "name": "Avançar"
+      },
+      "key_rewind": {
+        "name": "Retroceder"
+      },
+      "key_digit_0": {
+        "name": "Tecla 0"
+      },
+      "key_digit_1": {
+        "name": "Tecla 1"
+      },
+      "key_digit_2": {
+        "name": "Tecla 2"
+      },
+      "key_digit_3": {
+        "name": "Tecla 3"
+      },
+      "key_digit_4": {
+        "name": "Tecla 4"
+      },
+      "key_digit_5": {
+        "name": "Tecla 5"
+      },
+      "key_digit_6": {
+        "name": "Tecla 6"
+      },
+      "key_digit_7": {
+        "name": "Tecla 7"
+      },
+      "key_digit_8": {
+        "name": "Tecla 8"
+      },
+      "key_digit_9": {
+        "name": "Tecla 9"
       }
     }
   }

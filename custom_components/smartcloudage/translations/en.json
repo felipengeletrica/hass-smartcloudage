@@ -42,9 +42,12 @@
           "add_ac": "Add air conditioner",
           "edit_ac": "Edit air conditioner",
           "delete_ac": "Delete air conditioner",
+          "add_tv": "Add TV (beta)",
+          "edit_tv": "Edit TV",
+          "delete_tv": "Delete TV",
           "finish": "Save and finish"
         },
-        "description": "Pulse meters and air conditioners of this controller."
+        "description": "Pulse meters, air conditioners and TVs of this controller."
       },
       "add_meter": {
         "title": "Add pulse meter",
@@ -132,6 +135,39 @@
         "data": {
           "confirm": "I confirm deleting this air conditioner"
         }
+      },
+      "tv": {
+        "title": "Infrared TV (beta)",
+        "description": "The infrared emitter sits on one of the two PWM outputs of controller {controller}. Choose the remote model and the emitter channel. The TV gets a remote entity (remote.send_command with the key name) and one button per key: everyday keys are enabled; digits and media keys come disabled and can be enabled on the device page. Codes vary by model: check the keys on your TV.",
+        "data": {
+          "name": "Name",
+          "preset": "Remote model",
+          "ir_output": "IR emitter PWM channel",
+          "skip_firmware_check": "Add without checking the firmware"
+        },
+        "data_description": {
+          "ir_output": "Controller channel where the SmartBeam emitter is wired.",
+          "skip_firmware_check": "On save, the integration queries the controller firmware with command 32. Check only if the controller is off right now."
+        }
+      },
+      "edit_tv": {
+        "title": "Choose TV",
+        "data": {
+          "tv_remote": "TV"
+        }
+      },
+      "delete_tv": {
+        "title": "Delete TV",
+        "data": {
+          "tv_remote": "TV"
+        }
+      },
+      "confirm_delete_tv": {
+        "title": "Confirm deletion",
+        "description": "Delete TV {name}? Its device and entities will be removed.",
+        "data": {
+          "confirm": "I confirm deleting this TV"
+        }
       }
     },
     "error": {
@@ -144,7 +180,8 @@
     },
     "abort": {
       "no_meters_configured": "There are no configured meters.",
-      "no_acs_configured": "No air conditioners are configured."
+      "no_acs_configured": "No air conditioners are configured.",
+      "no_tvs_configured": "There are no TVs configured."
     }
   },
   "entity": {
@@ -201,6 +238,115 @@
       },
       "ac_clean": {
         "name": "Clean"
+      }
+    },
+    "remote": {
+      "tv_remote": {
+        "name": "Remote"
+      }
+    },
+    "button": {
+      "key_power": {
+        "name": "Power"
+      },
+      "key_power_on": {
+        "name": "Power on"
+      },
+      "key_power_off": {
+        "name": "Power off"
+      },
+      "key_input": {
+        "name": "Input"
+      },
+      "key_mute": {
+        "name": "Mute"
+      },
+      "key_volume_up": {
+        "name": "Volume up"
+      },
+      "key_volume_down": {
+        "name": "Volume down"
+      },
+      "key_channel_up": {
+        "name": "Channel up"
+      },
+      "key_channel_down": {
+        "name": "Channel down"
+      },
+      "key_up": {
+        "name": "Up"
+      },
+      "key_down": {
+        "name": "Down"
+      },
+      "key_left": {
+        "name": "Left"
+      },
+      "key_right": {
+        "name": "Right"
+      },
+      "key_ok": {
+        "name": "OK"
+      },
+      "key_menu": {
+        "name": "Menu"
+      },
+      "key_home": {
+        "name": "Home"
+      },
+      "key_back": {
+        "name": "Back"
+      },
+      "key_exit": {
+        "name": "Exit"
+      },
+      "key_info": {
+        "name": "Info"
+      },
+      "key_play": {
+        "name": "Play"
+      },
+      "key_pause": {
+        "name": "Pause"
+      },
+      "key_stop": {
+        "name": "Stop"
+      },
+      "key_fast_forward": {
+        "name": "Fast forward"
+      },
+      "key_rewind": {
+        "name": "Rewind"
+      },
+      "key_digit_0": {
+        "name": "Key 0"
+      },
+      "key_digit_1": {
+        "name": "Key 1"
+      },
+      "key_digit_2": {
+        "name": "Key 2"
+      },
+      "key_digit_3": {
+        "name": "Key 3"
+      },
+      "key_digit_4": {
+        "name": "Key 4"
+      },
+      "key_digit_5": {
+        "name": "Key 5"
+      },
+      "key_digit_6": {
+        "name": "Key 6"
+      },
+      "key_digit_7": {
+        "name": "Key 7"
+      },
+      "key_digit_8": {
+        "name": "Key 8"
+      },
+      "key_digit_9": {
+        "name": "Key 9"
       }
     }
   }

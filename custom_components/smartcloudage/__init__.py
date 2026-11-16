@@ -8,9 +8,10 @@ from homeassistant.components import mqtt
 from homeassistant.helpers.event import async_track_time_interval
 
 from .air_conditioner import build_air_conditioners
+from .tv_remote import build_tv_remotes
 
 DOMAIN = "smartcloudage"
-PLATFORMS = ["switch", "sensor", "climate"]
+PLATFORMS = ["switch", "sensor", "climate", "remote", "button"]
 SYNC_RTC_INTERVAL = 5
 CONFIG_DATE_TIME_ENUM = 9
 WRITE = 1
@@ -52,9 +53,11 @@ async def async_setup_entry(hass, entry):
     """Set up SmartCloudAge from a config entry."""
     devices = entry.options.get("devices", entry.data.get("devices", []))
     senders, air_conditioners = build_air_conditioners(hass, devices)
+    tv_remotes = build_tv_remotes(hass, devices, senders)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
         "ir_senders": senders,
         "air_conditioners": air_conditioners,
+        "tv_remotes": tv_remotes,
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

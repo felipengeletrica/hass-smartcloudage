@@ -21,6 +21,8 @@ from .air_conditioner import (
     ir_output_gpio,
 )
 from .hvac import PROTOCOLS, brand_name, get_protocol
+from .tv_codes import PRESETS as TV_PRESETS
+from .tv_remote import DEFAULT_PRESET as TV_DEFAULT_PRESET, tv_preset
 
 DOMAIN = "smartcloudage"
 ## Form error for each firmware probe result that blocks the registration.
@@ -146,6 +148,43 @@ def ac_schema(defaults=None):
     )
 
 
+## @brief Builds the form for an IR-controlled TV (beta).
+#  @param defaults Optional initial values of the TV.
+#  @return Voluptuous schema with name, remote model and IR output.
+def tv_schema(defaults=None):
+    """Build the TV remote form."""
+    defaults = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required("name", default=defaults.get("name", "")): str,
+            vol.Required(
+                "preset", default=defaults.get("preset", TV_DEFAULT_PRESET)
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(value=preset.id, label=preset.name)
+                        for preset in TV_PRESETS.values()
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            _required(
+                "ir_output",
+                str(ir_output_gpio(defaults["ir_output"])) if "ir_output" in defaults else None,
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(value=str(gpio), label=label)
+                        for gpio, label in IR_OUTPUTS.items()
+                    ],
+                    mode=selector.SelectSelectorMode.LIST,
+                )
+            ),
+            vol.Required("skip_firmware_check", default=False): bool,
+        }
+    )
+
+
 ## @brief Builds the remote-model form of a brand with more than one protocol variant.
 #  @param brand Selected brand value.
 #  @param default Model shown first.
@@ -249,6 +288,7 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
         self._meter_index = None
         self._ac_index = None
         self._ac_draft = None
+        self._tv_index = None
 
     ## @brief Displays the available meter-management operations.
     #  @param user_input Menu input supplied by Home Assistant.
@@ -264,6 +304,7 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
                     "air_conditioners": [
                         dict(unit) for unit in device.get("air_conditioners", [])
                     ],
+                    "tv_remotes": [dict(tv) for tv in device.get("tv_remotes", [])],
                 }
                 for device in source.get("devices", [])
             ]
@@ -276,6 +317,9 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
                 "add_ac",
                 "edit_ac",
                 "delete_ac",
+                "add_tv",
+                "edit_tv",
+                "delete_tv",
                 "finish",
             ],
         )
@@ -564,6 +608,108 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             step_id="confirm_delete_ac",
             data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
             description_placeholders={"name": unit["name"]},
+        )
+
+    # ------------------------------------------------------------------
+    # TV remotes (beta)
+    # ------------------------------------------------------------------
+
+    ## @brief Builds labels for the configured TVs.
+    #  @return Mapping from TV index to its name and remote model.
+    def _tv_choices(self):
+        """Return configured TVs as selector choices."""
+        return {
+            index: f"{tv['name']} — {tv_preset(tv.get('preset')).name}"
+            for index, tv in enumerate(self._devices[0].get("tv_remotes", []))
+        }
+
+    ## @brief Starts the form for a new TV.
+    async def async_step_add_tv(self, user_input=None):
+        """Add a TV controlled by the IR emitter."""
+        self._tv_index = None
+        return await self.async_step_tv()
+
+    ## @brief Lets the user select a configured TV for editing.
+    async def async_step_edit_tv(self, user_input=None):
+        """Choose an existing TV to edit."""
+        if not self._devices[0].get("tv_remotes"):
+            return self.async_abort(reason="no_tvs_configured")
+        if user_input is not None:
+            self._tv_index = int(user_input["tv_remote"])
+            return await self.async_step_tv()
+        return self.async_show_form(
+            step_id="edit_tv",
+            data_schema=vol.Schema({vol.Required("tv_remote"): vol.In(self._tv_choices())}),
+        )
+
+    ## @brief Collects name, remote model and IR output of a TV.
+    #  @param user_input Submitted values, or @c None on first display.
+    #  @return TV form or completed options entry.
+    async def async_step_tv(self, user_input=None):
+        """Configure a TV."""
+        tvs = self._devices[0].setdefault("tv_remotes", [])
+        current = tvs[self._tv_index] if self._tv_index is not None else {}
+        errors = {}
+        if user_input is not None:
+            if not user_input["name"].strip():
+                errors["name"] = "name_required"
+            elif not user_input.get("skip_firmware_check") and (
+                probe := await self._async_probe_ir()
+            ) not in (IR_SEGMENTS, IR_NO_SEGMENTS):
+                # TV frames need command 32 only, not the segmented A/C frames.
+                errors["base"] = FIRMWARE_ERRORS[probe]
+            else:
+                tv = {
+                    "id": current.get("id") or uuid.uuid4().hex[:8],
+                    "name": user_input["name"].strip(),
+                    "preset": user_input["preset"],
+                    "ir_output": int(user_input["ir_output"]),
+                }
+                if self._tv_index is None:
+                    tvs.append(tv)
+                else:
+                    tvs[self._tv_index] = tv
+                self._tv_index = None
+                return self._save_options()
+        return self.async_show_form(
+            step_id="tv",
+            data_schema=self.add_suggested_values_to_schema(tv_schema(current), user_input or {})
+            if user_input
+            else tv_schema(current),
+            errors=errors,
+            description_placeholders={"controller": self._devices[0].get("alias") or ""},
+        )
+
+    ## @brief Lets the user choose a configured TV for deletion.
+    async def async_step_delete_tv(self, user_input=None):
+        """Choose an existing TV to delete."""
+        if not self._devices[0].get("tv_remotes"):
+            return self.async_abort(reason="no_tvs_configured")
+        if user_input is not None:
+            self._tv_index = int(user_input["tv_remote"])
+            return await self.async_step_confirm_delete_tv()
+        return self.async_show_form(
+            step_id="delete_tv",
+            data_schema=vol.Schema({vol.Required("tv_remote"): vol.In(self._tv_choices())}),
+        )
+
+    ## @brief Confirms deletion and removes the TV device.
+    async def async_step_confirm_delete_tv(self, user_input=None):
+        """Confirm and delete the selected TV."""
+        tvs = self._devices[0]["tv_remotes"]
+        tv = tvs[self._tv_index]
+        if user_input is not None and user_input["confirm"]:
+            device_id = self._devices[0].get("device_id")
+            device = find_device(self.hass, self.config_entry.entry_id, f"{device_id}_tv_{tv['id']}")
+            if device is not None:
+                dr.async_get(self.hass).async_remove_device(device.id)
+            tvs.pop(self._tv_index)
+            self._tv_index = None
+            return self._save_options()
+        return self.async_show_form(
+            step_id="confirm_delete_tv",
+            data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
+            description_placeholders={"name": tv["name"]},
         )
 
     ## @brief Closes the options flow without changing the working data.
