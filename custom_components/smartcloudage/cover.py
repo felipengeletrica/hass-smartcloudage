@@ -10,10 +10,14 @@ Assistant restarted while the motor ran); a full close or open restores it.
 
 Calibration (Shelly-style, for motors without power metering): close until
 the controller stops the motor, then open timing the run and close timing the
-run. Each run ends when the user marks the end of travel, a wall button stops
-the motor, or a limit switch does. The window ends closed. The dashboard asks
-for confirmation with a safety warning before starting, and a notification
-reminds the user to watch the window.
+run. Each timed run ends when the user marks the end of travel, a wall button
+stops the motor, or a limit switch does. The window ends closed.
+
+Safety: a wall button cannot tell an emergency stop from the end of travel, so
+the calibration never moves the window again by itself after a stop: each next
+step starts only when the user presses "Fim do curso". The dashboard asks for
+confirmation with a safety warning before starting, and notifications remind
+the user to watch the window.
 """
 
 from __future__ import annotations
@@ -65,14 +69,26 @@ TIMEOUT_RATIO = 0.95
 
 CALIBRATION_IDLE = None
 CALIBRATION_CLOSING = "fechando"
+CALIBRATION_WAIT_OPEN = "aguardando para abrir"
 CALIBRATION_OPENING = "medindo abertura"
+CALIBRATION_WAIT_CLOSE = "aguardando para fechar"
 CALIBRATION_TIMING_CLOSE = "medindo fechamento"
+## How long the calibration waits for the user between steps before giving up.
+CONTINUE_TIMEOUT_S = 300
 
 SAFETY_REMINDER = (
-    "⚠️ **Acompanhe visualmente.** A janela **{name}** vai se mover sozinha: fechar até o fim, abrir e "
-    "fechar de novo. Confira que não há pessoas, crianças, animais ou objetos no caminho. **Parar** "
-    "(ou o botão de parede) interrompe na hora e cancela a calibração.\n\n"
-    "Toque em **Fim do curso** quando a janela chegar ao fim ao **abrir** e de novo ao **fechar**."
+    "⚠️ **Acompanhe visualmente.** A janela **{name}** vai fechar até o fim. Confira que não há pessoas, "
+    "crianças, animais ou objetos no caminho. **Parar** (ou o botão de parede) interrompe na hora.\n\n"
+    "A calibração **não continua sozinha**: depois de cada parada, a janela só volta a se mover quando você "
+    "tocar em **Fim do curso**."
+)
+WAIT_OPEN = (
+    "**{name}** está fechada. Olhando para a janela, toque em **Fim do curso** para ela **abrir** medindo o "
+    "tempo; toque de novo (ou aperte o botão de parede) quando ela estiver totalmente aberta."
+)
+WAIT_CLOSE = (
+    "Abertura medida: **{travel:.1f} s**. Olhando para a janela, toque em **Fim do curso** para ela **fechar** "
+    "medindo o tempo; toque de novo (ou aperte o botão de parede) quando ela estiver totalmente fechada."
 )
 
 
@@ -312,13 +328,25 @@ class SmartCloudAgeWindowCover(CoverEntity, RestoreEntity):
         self.async_write_ha_state()
         self._calibration_task = self.hass.async_create_task(self._async_run_calibration())
 
-    ## @brief Marks the end of travel of the run being timed.
+    ## @brief Starts the next calibration step, or marks the end of the run being timed.
     async def async_calibrate_mark(self) -> None:
-        if self.calibration not in (CALIBRATION_OPENING, CALIBRATION_TIMING_CLOSE):
+        if self.calibration not in (
+            CALIBRATION_WAIT_OPEN, CALIBRATION_OPENING, CALIBRATION_WAIT_CLOSE, CALIBRATION_TIMING_CLOSE
+        ):
             raise HomeAssistantError(
-                "Toque em Fim do curso só durante a calibração, quando a janela chegar ao fim."
+                "Toque em Fim do curso só durante a calibração, depois que a janela fechar."
             )
         self._marked.set()
+
+    async def _async_wait_user(self, state: str, message: str) -> None:
+        """Safety: after every stop, move again only when the user presses Fim do curso."""
+        self._marked.clear()
+        self.calibration = state
+        self._notify(message)
+        self.async_write_ha_state()
+        if not await self._async_wait(self._marked, CONTINUE_TIMEOUT_S):
+            raise HomeAssistantError("ninguém tocou em Fim do curso para continuar")
+        await asyncio.sleep(DEAD_TIME_S)
 
     async def _async_safety_timeout(self) -> float:
         """Safety timeout of the open input (command 15), or the firmware default."""
@@ -389,15 +417,17 @@ class SmartCloudAgeWindowCover(CoverEntity, RestoreEntity):
     async def _async_run_calibration(self) -> None:
         try:
             safety = await self._async_safety_timeout()
-            # 1) Reference: closed.
+            # 1) Reference: closed. Any stop (limit switch, timeout or a wall button) ends it,
+            #    and nothing moves again until the user confirms.
             await self._async_close_to_end(safety + STOP_GRACE_S)
-            await asyncio.sleep(DEAD_TIME_S)
-            # 2) Time the opening, 3) time the closing (the window ends closed).
+            await self._async_wait_user(CALIBRATION_WAIT_OPEN, WAIT_OPEN.format(name=self.window.name))
+            # 2) Time the opening.
             self.calibration = CALIBRATION_OPENING
             self.async_write_ha_state()
             travel_open = await self._async_timed_run(1, safety)
             self.tracker.set_position(100.0)
-            await asyncio.sleep(DEAD_TIME_S)
+            await self._async_wait_user(CALIBRATION_WAIT_CLOSE, WAIT_CLOSE.format(travel=travel_open))
+            # 3) Time the closing (the window ends closed).
             self.calibration = CALIBRATION_TIMING_CLOSE
             self.async_write_ha_state()
             travel_close = await self._async_timed_run(-1, safety)

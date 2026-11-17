@@ -417,15 +417,18 @@ O estado **abrindo / fechando / parada** é o real, vindo das saídas que a cont
 3. Informe o nome, o par de entradas, o tipo (janela, persiana, cortina…) e os **tempos para abrir e para fechar**. Se não souber, deixe o padrão e use **Calibrar curso**.
 4. Em **Saídas da janela**, escolha uma opção:
    - **Ler da controladora**: usa o cenário já gravado (pelo SCA Command) e confere se as duas entradas estão como Janela elétrica, cada uma com a sua saída.
-   - **Configurar as entradas na controladora agora**: grava as duas entradas como Janela elétrica com as saídas informadas e tempo máximo = maior tempo de curso + 5 s. O debounce e a inversão que as entradas já tinham são mantidos.
+   - **Configurar as entradas na controladora agora**: grava as duas entradas como Janela elétrica com as saídas informadas e tempo máximo = maior tempo de curso com 20 % de folga (no mínimo 5 s), como recomenda o Manual do produto. O debounce e a inversão que as entradas já tinham são mantidos.
    - **Cadastrar sem consultar a controladora**: só registra, com as saídas informadas.
 
 ### Calibre os tempos de curso
 
 Como no Shelly, a calibração mede os dois sentidos. No dispositivo da janela há dois botões:
 
-1. **Calibrar curso**: a janela fecha até a controladora parar o motor (0 %), depois **abre** medindo o tempo e por fim **fecha** medindo o tempo. Ela termina fechada.
-2. **Fim do curso**: toque quando a janela chegar ao fim, ao abrir e de novo ao fechar. Também vale apertar o botão de parede, que para o motor; com fim de curso instalado, a parada é automática.
+1. **Calibrar curso**: a janela fecha até a controladora parar o motor (0 %) e **espera**.
+2. **Fim do curso**: a janela **abre** medindo o tempo. Toque de novo em **Fim do curso** quando ela estiver totalmente aberta (ou aperte o botão de parede; com fim de curso instalado, a parada é automática). Ela para e **espera**.
+3. **Fim do curso**: a janela **fecha** medindo o tempo. Toque de novo quando ela estiver totalmente fechada. Ela termina fechada.
+
+Depois de cada parada, a janela **só volta a se mover quando você toca em Fim do curso**: o botão de parede não distingue uma parada de emergência do fim do curso, então uma interrupção nunca é seguida de movimento automático. Sem toque em 5 minutos, a calibração é cancelada.
 
 Os tempos medidos são salvos e uma notificação mostra o resultado. **Parar** cancela a calibração sem mudar nada. Se o tempo máximo de segurança da controladora acabar antes do fim do curso, a medida é recusada: aumente o tempo do cenário Janela no SCA Command e calibre de novo.
 

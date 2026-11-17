@@ -187,7 +187,7 @@
         },
         "data_description": {
           "open_input": "Botões de parede ligados nas entradas: a primeira abre, a segunda fecha. Um toque com o motor andando para a janela.",
-          "travel_time": "Tempo de totalmente fechada a totalmente aberta; o botão Calibrar curso mede sozinho. Ao configurar as entradas na controladora, o tempo máximo de motor ligado fica no maior tempo + 5 s.",
+          "travel_time": "Tempo de totalmente fechada a totalmente aberta; o botão Calibrar curso mede sozinho. Ao configurar as entradas na controladora, o tempo máximo de motor ligado fica no maior tempo com 20 % de folga (no mínimo 5 s).",
           "source": "Ler da controladora: usa o cenário já gravado, por exemplo pelo SCA Command. Configurar agora: grava as duas entradas como Janela elétrica com as saídas abaixo. Sem consultar: só cadastra, com as saídas abaixo.",
           "open_output": "Usada ao configurar as entradas agora ou ao cadastrar sem consultar.",
           "close_output": "Usada ao configurar as entradas agora ou ao cadastrar sem consultar.",

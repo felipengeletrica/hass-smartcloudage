@@ -41,8 +41,9 @@ DEAD_TIME_S = 0.7
 DEFAULT_TRAVEL_S = 30
 MIN_TRAVEL_S = 2
 MAX_TRAVEL_S = 600
-## Safety timeout written to the controller: travel time plus this margin.
+## Safety timeout written to the controller: travel time plus 20 % (product manual 11.16), at least this.
 SAFETY_MARGIN_S = 5
+SAFETY_RATIO = 1.2
 ## A run this close to the full travel time reached the end.
 FULL_RUN_RATIO = 0.98
 NUMBER_INPUTS = 16
@@ -241,7 +242,7 @@ async def async_configure_window(
     travel_s: float,
     previous: list[dict] | None = None,
 ) -> bool:
-    time_ms = int(min(MAX_TRAVEL_S, travel_s + SAFETY_MARGIN_S) * 1000)
+    time_ms = int(min(MAX_TRAVEL_S, max(travel_s * SAFETY_RATIO, travel_s + SAFETY_MARGIN_S)) * 1000)
     previous = previous or [{}, {}]
     for offset, output in ((0, open_output), (1, close_output)):
         old = previous[offset] or {}

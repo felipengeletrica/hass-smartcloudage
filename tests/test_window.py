@@ -221,7 +221,7 @@ async def test_configure_window_keeps_debounce_and_invert():
     first, second = (c.args[0] for c in client.async_write.call_args_list)
     assert first == {
         "index": 1, "output": 0b0100, "type": 8,
-        "time_ms": (20 + SAFETY_MARGIN_S) * 1000, "debounce": 250, "invert": 1,
+        "time_ms": 25000, "debounce": 250, "invert": 1,  # 20 s + 5 s (20 % would be 4 s)
     }
     assert second["index"] == 2 and second["output"] == 0b1000 and second["debounce"] == 100
 
@@ -497,6 +497,11 @@ async def test_calibration_warns_then_times_open_and_close(hass, calibrating):
     await cover.async_calibrate()
     assert "Acompanhe visualmente" in cover.notify.call_args_list[0].args[0]
     await _close_to_end(cover)
+    # Safety: closed, it waits for the user before moving again.
+    await _until(lambda: cover.calibration == "aguardando para abrir")
+    await __import__("asyncio").sleep(0.05)
+    assert cover.window.async_run.await_count == 1
+    await cover.async_calibrate_mark()
     await _until(lambda: cover.calibration == "medindo abertura")
     cover.apply_outputs(0b01)
     with pytest.raises(HomeAssistantError):
@@ -504,6 +509,8 @@ async def test_calibration_warns_then_times_open_and_close(hass, calibrating):
     await cover.async_calibrate_mark()
     await _until(lambda: cover.window.async_stop.await_count == 1)
     cover.apply_outputs(0)
+    await _until(lambda: cover.calibration == "aguardando para fechar")
+    await cover.async_calibrate_mark()
     await _until(lambda: cover.calibration == "medindo fechamento")
     assert cover.window.async_run.await_args.args[0] == -1
     cover.apply_outputs(0b10)
@@ -521,6 +528,8 @@ async def test_run_cut_by_the_safety_timeout_is_not_saved(hass, calibrating):
     with patch.object(SmartCloudAgeWindowCover, "_async_safety_timeout", AsyncMock(return_value=0.0)):
         await cover.async_calibrate()
         await _close_to_end(cover)
+        await _until(lambda: cover.calibration == "aguardando para abrir")
+        await cover.async_calibrate_mark()
         await _until(lambda: cover.calibration == "medindo abertura")
         cover.apply_outputs(0b01)
         cover.apply_outputs(0)
@@ -538,6 +547,18 @@ async def test_stop_cancels_the_calibration(hass, calibrating):
     await _until(lambda: cover.calibration is None)
     cover.save.assert_not_called()
     assert "cancelada" in cover.notify.call_args.args[0]
+
+
+async def test_wall_button_stop_never_restarts_the_motor(hass, calibrating):
+    cover = calibrating
+    await cover.async_calibrate()
+    await _close_to_end(cover)  # the stop may be an emergency press on the wall button
+    await _until(lambda: cover.calibration == "aguardando para abrir")
+    await __import__("asyncio").sleep(0.1)
+    assert cover.window.async_run.await_count == 1  # nothing moved after the stop
+    await cover.async_stop_cover()
+    await _until(lambda: cover.calibration is None)
+    cover.save.assert_not_called()
 
 
 async def test_mark_outside_calibration_is_refused(hass):

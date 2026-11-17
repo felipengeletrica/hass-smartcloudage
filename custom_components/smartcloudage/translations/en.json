@@ -187,7 +187,7 @@
         },
         "data_description": {
           "open_input": "Wall buttons wired to the inputs: the first opens, the second closes. A press while the motor runs stops it.",
-          "travel_time": "Time from fully closed to fully open; the Calibrate travel button measures it. When the inputs are configured on the controller, the maximum motor run time is the longer time + 5 s.",
+          "travel_time": "Time from fully closed to fully open; the Calibrate travel button measures it. When the inputs are configured on the controller, the maximum motor run time is the longer time plus 20 % (at least 5 s).",
           "source": "Read from the controller: use the scenario already stored, e.g. by SCA Command. Configure now: write both inputs as Electric window with the outputs below. Without querying: just register, with the outputs below.",
           "open_output": "Used when configuring the inputs now or when registering without querying.",
           "close_output": "Used when configuring the inputs now or when registering without querying.",
