@@ -395,6 +395,12 @@
       },
       "key_digit_9": {
         "name": "Key 9"
+      },
+      "window_calibrate": {
+        "name": "Calibrate travel"
+      },
+      "window_calibrate_mark": {
+        "name": "End of travel (window open)"
       }
     }
   },

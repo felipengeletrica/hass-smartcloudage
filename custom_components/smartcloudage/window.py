@@ -309,6 +309,8 @@ class Window:
         self.travel_s = float(config.get("travel_time", DEFAULT_TRAVEL_S))
         device_class = config.get("device_class", DEFAULT_DEVICE_CLASS)
         self.device_class = device_class if device_class in DEVICE_CLASSES else DEFAULT_DEVICE_CLASS
+        ## Cover entity of this window (set by the cover platform), used by the calibration buttons.
+        self.cover = None
 
     @property
     def unique_prefix(self) -> str:

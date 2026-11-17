@@ -416,6 +416,17 @@ O estado **abrindo / fechando / parada** é o real, vindo das saídas que a cont
    - **Configurar as entradas na controladora agora**: grava as duas entradas como Janela elétrica com as saídas informadas e tempo máximo = tempo de curso + 5 s. O debounce e a inversão que as entradas já tinham são mantidos.
    - **Cadastrar sem consultar a controladora**: só registra, com as saídas informadas.
 
+### Calibre o tempo de curso
+
+A posição só fica certa se o tempo de curso for o real. No dispositivo da janela há dois botões de configuração:
+
+1. **Calibrar curso**: a janela fecha até a controladora parar o motor (fim de curso ou tempo máximo) e fica em 0 %. Depois começa a abrir e o tempo passa a contar.
+2. **Fim do curso (janela aberta)**: toque quando a janela estiver totalmente aberta. Também vale apertar o botão de parede, que para o motor; com fim de curso instalado, a parada é automática.
+
+O tempo medido é salvo como tempo de curso e a janela fica em 100 %. Uma notificação mostra o resultado. **Parar** cancela a calibração sem mudar nada.
+
+Se o tempo máximo de segurança da controladora acabar antes de a janela abrir toda, a calibração é recusada: aumente o tempo do cenário Janela no SCA Command e calibre de novo.
+
 ```yaml
 # Abrir até a metade
 action: cover.set_cover_position

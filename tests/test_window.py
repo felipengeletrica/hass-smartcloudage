@@ -455,3 +455,99 @@ async def test_no_windows_aborts_edit(hass):
     result = await _open_window_form(hass, entry, "edit_window")
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "no_windows_configured"
+
+
+# ---------------------------------------------------------------------------
+# Travel-time calibration
+# ---------------------------------------------------------------------------
+
+
+async def _until(predicate, timeout=3.0):
+    import asyncio
+
+    loop_end = asyncio.get_running_loop().time() + timeout
+    while not predicate():
+        assert asyncio.get_running_loop().time() < loop_end, "timeout waiting for calibration step"
+        await asyncio.sleep(0.01)
+
+
+@pytest.fixture
+def calibrating(hass):
+    cover = _cover(hass)
+    cover.window.async_run = AsyncMock()
+    cover.window.async_stop = AsyncMock()
+    with patch.object(SmartCloudAgeWindowCover, "_async_safety_timeout", AsyncMock(return_value=30.0)), \
+            patch.object(SmartCloudAgeWindowCover, "_notify") as notify, \
+            patch.object(SmartCloudAgeWindowCover, "_save_travel_time") as save, \
+            patch("custom_components.smartcloudage.cover.MIN_TRAVEL_S", 0):
+        cover.notify, cover.save = notify, save
+        yield cover
+    cover._cancel_timers()
+
+
+async def test_calibration_closes_then_times_the_opening(hass, calibrating):
+    cover = calibrating
+    await cover.async_calibrate()
+    assert cover.calibration == "fechando"
+    await _until(lambda: cover.window.async_run.await_count == 1)
+    assert cover.window.async_run.await_args.args[0] == -1
+    cover.apply_outputs(0b10)  # closing
+    cover.apply_outputs(0)  # controller stopped it: closed
+    await _until(lambda: cover.calibration == "abrindo")
+    assert cover.window.async_run.await_args.args[0] == 1
+    cover.apply_outputs(0b01)  # opening
+    with pytest.raises(HomeAssistantError):
+        await cover.async_open_cover()  # no moves while calibrating
+    await cover.async_calibrate_mark()
+    await _until(lambda: cover.window.async_stop.await_count == 1)
+    cover.apply_outputs(0)  # controller confirms the stop
+    await _until(lambda: cover.calibration is None)
+    cover.window.async_stop.assert_awaited()
+    cover.save.assert_called_once()
+    assert cover.window.travel_s == cover.save.call_args.args[0]
+    assert cover.current_cover_position == 100
+    assert "Calibração concluída" in cover.notify.call_args.args[0]
+
+
+async def test_wall_button_stop_also_ends_the_calibration(hass, calibrating):
+    cover = calibrating
+    await cover.async_calibrate()
+    await _until(lambda: cover.window.async_run.await_count == 1)
+    cover.apply_outputs(0b10)
+    cover.apply_outputs(0)
+    await _until(lambda: cover.calibration == "abrindo")
+    cover.apply_outputs(0b01)
+    cover.apply_outputs(0)  # stopped by the wall button / limit switch
+    await _until(lambda: cover.calibration is None)
+    cover.save.assert_called_once()
+
+
+async def test_run_cut_by_the_safety_timeout_is_not_saved(hass, calibrating):
+    cover = calibrating
+    with patch.object(SmartCloudAgeWindowCover, "_async_safety_timeout", AsyncMock(return_value=0.0)):
+        await cover.async_calibrate()
+        await _until(lambda: cover.window.async_run.await_count == 1)
+        cover.apply_outputs(0b10)
+        cover.apply_outputs(0)
+        await _until(lambda: cover.calibration == "abrindo")
+        cover.apply_outputs(0b01)
+        cover.apply_outputs(0)
+        await _until(lambda: cover.calibration is None)
+    cover.save.assert_not_called()
+    assert "não concluída" in cover.notify.call_args.args[0]
+    assert cover.window.travel_s == 20
+
+
+async def test_stop_cancels_the_calibration(hass, calibrating):
+    cover = calibrating
+    await cover.async_calibrate()
+    await _until(lambda: cover.window.async_run.await_count == 1)
+    await cover.async_stop_cover()
+    await _until(lambda: cover.calibration is None)
+    cover.save.assert_not_called()
+    assert "cancelada" in cover.notify.call_args.args[0]
+
+
+async def test_mark_outside_calibration_is_refused(hass):
+    with pytest.raises(HomeAssistantError):
+        await _cover(hass).async_calibrate_mark()
