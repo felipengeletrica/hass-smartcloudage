@@ -551,3 +551,43 @@ async def test_stop_cancels_the_calibration(hass, calibrating):
 async def test_mark_outside_calibration_is_refused(hass):
     with pytest.raises(HomeAssistantError):
         await _cover(hass).async_calibrate_mark()
+
+
+# ---------------------------------------------------------------------------
+# Calibration buttons: administrators only
+# ---------------------------------------------------------------------------
+
+
+def _calibration_button(hass, user_id):
+    from homeassistant.core import Context
+
+    from custom_components.smartcloudage.button import WindowCalibrationButton
+
+    window = _window(hass)
+    window.cover = Mock(async_calibrate=AsyncMock(), async_calibrate_mark=AsyncMock())
+    button = WindowCalibrationButton(window, mark=False)
+    button.hass = hass
+    button.entity_id = "button.janela_calibrar_curso"
+    button.async_set_context(Context(user_id=user_id))
+    return button, window.cover
+
+
+async def test_admin_can_calibrate(hass, hass_admin_user):
+    button, cover = _calibration_button(hass, hass_admin_user.id)
+    await button.async_press()
+    cover.async_calibrate.assert_awaited_once()
+
+
+async def test_non_admin_cannot_calibrate(hass, hass_read_only_user):
+    from homeassistant.exceptions import Unauthorized
+
+    button, cover = _calibration_button(hass, hass_read_only_user.id)
+    with pytest.raises(Unauthorized):
+        await button.async_press()
+    cover.async_calibrate.assert_not_awaited()
+
+
+async def test_automation_without_user_can_calibrate(hass):
+    button, cover = _calibration_button(hass, None)
+    await button.async_press()
+    cover.async_calibrate.assert_awaited_once()

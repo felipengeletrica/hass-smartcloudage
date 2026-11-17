@@ -425,6 +425,8 @@ A posição só fica certa se o tempo de curso for o real. No dispositivo da jan
 
 O tempo medido é salvo como tempo de curso e a janela fica em 100 %. Uma notificação mostra o resultado. **Parar** cancela a calibração sem mudar nada.
 
+Só **administradores** do Home Assistant podem calibrar: o botão acionado por outro usuário é recusado como não autorizado. Automações e scripts, que não têm usuário, podem.
+
 Se o tempo máximo de segurança da controladora acabar antes de a janela abrir toda, a calibração é recusada: aumente o tempo do cenário Janela no SCA Command e calibre de novo.
 
 ```yaml

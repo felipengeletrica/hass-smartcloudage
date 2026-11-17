@@ -8,7 +8,7 @@ in the device page when needed (the full remote).
 from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError, Unauthorized
 from homeassistant.helpers.entity import EntityCategory
 
 from .air_conditioner import DOMAIN
@@ -76,6 +76,7 @@ class WindowCalibrationButton(ButtonEntity):
         self._attr_device_info = window.device_info
 
     async def async_press(self) -> None:
+        await self._async_require_admin()
         cover = self.window.cover
         if cover is None:
             raise HomeAssistantError(f"A janela {self.window.name} ainda não está pronta.")
@@ -83,6 +84,17 @@ class WindowCalibrationButton(ButtonEntity):
             await cover.async_calibrate_mark()
         else:
             await cover.async_calibrate()
+
+    ## @brief Only administrators calibrate; calls without a user (automations, scripts) are allowed.
+    #  @throws Unauthorized when the press comes from a user who is not an administrator.
+    async def _async_require_admin(self) -> None:
+        context = self._context
+        user_id = context.user_id if context is not None else None
+        if user_id is None:
+            return
+        user = await self.hass.auth.async_get_user(user_id)
+        if user is None or not user.is_admin:
+            raise Unauthorized(context=context, entity_id=self.entity_id, permission="calibrate")
 
 
 ## @brief One key of a TV remote.
