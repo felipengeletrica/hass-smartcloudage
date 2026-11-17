@@ -179,17 +179,19 @@
           "name": "Name",
           "open_input": "Button inputs",
           "device_class": "Type",
-          "travel_time": "Travel time (s)",
+          "travel_time": "Time to open (s)",
           "source": "Window outputs",
           "open_output": "Output that opens",
-          "close_output": "Output that closes"
+          "close_output": "Output that closes",
+          "travel_time_close": "Time to close (s)"
         },
         "data_description": {
           "open_input": "Wall buttons wired to the inputs: the first opens, the second closes. A press while the motor runs stops it.",
-          "travel_time": "Time the motor takes from fully closed to fully open. Used to estimate the position. When the inputs are configured on the controller, the maximum motor run time is the travel time + 5 s.",
+          "travel_time": "Time from fully closed to fully open; the Calibrate travel button measures it. When the inputs are configured on the controller, the maximum motor run time is the longer time + 5 s.",
           "source": "Read from the controller: use the scenario already stored, e.g. by SCA Command. Configure now: write both inputs as Electric window with the outputs below. Without querying: just register, with the outputs below.",
           "open_output": "Used when configuring the inputs now or when registering without querying.",
-          "close_output": "Used when configuring the inputs now or when registering without querying."
+          "close_output": "Used when configuring the inputs now or when registering without querying.",
+          "travel_time_close": "Time from fully open to fully closed (motors usually lower faster than they lift)."
         }
       },
       "edit_window": {
@@ -400,7 +402,7 @@
         "name": "Calibrate travel"
       },
       "window_calibrate_mark": {
-        "name": "End of travel (window open)"
+        "name": "End of travel"
       }
     }
   },

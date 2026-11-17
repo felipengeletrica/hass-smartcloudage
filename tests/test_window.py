@@ -458,7 +458,7 @@ async def test_no_windows_aborts_edit(hass):
 
 
 # ---------------------------------------------------------------------------
-# Travel-time calibration
+# Travel-time calibration (close to the end, time the opening, time the closing)
 # ---------------------------------------------------------------------------
 
 
@@ -478,58 +478,50 @@ def calibrating(hass):
     cover.window.async_stop = AsyncMock()
     with patch.object(SmartCloudAgeWindowCover, "_async_safety_timeout", AsyncMock(return_value=30.0)), \
             patch.object(SmartCloudAgeWindowCover, "_notify") as notify, \
-            patch.object(SmartCloudAgeWindowCover, "_save_travel_time") as save, \
+            patch.object(SmartCloudAgeWindowCover, "_save_travel_times") as save, \
             patch("custom_components.smartcloudage.cover.MIN_TRAVEL_S", 0):
         cover.notify, cover.save = notify, save
         yield cover
     cover._cancel_timers()
 
 
-async def test_calibration_closes_then_times_the_opening(hass, calibrating):
-    cover = calibrating
-    await cover.async_calibrate()
-    assert cover.calibration == "fechando"
+async def _close_to_end(cover):
     await _until(lambda: cover.window.async_run.await_count == 1)
     assert cover.window.async_run.await_args.args[0] == -1
-    cover.apply_outputs(0b10)  # closing
+    cover.apply_outputs(0b10)
     cover.apply_outputs(0)  # controller stopped it: closed
-    await _until(lambda: cover.calibration == "abrindo")
-    assert cover.window.async_run.await_args.args[0] == 1
-    cover.apply_outputs(0b01)  # opening
+
+
+async def test_calibration_warns_then_times_open_and_close(hass, calibrating):
+    cover = calibrating
+    await cover.async_calibrate()
+    assert "Acompanhe visualmente" in cover.notify.call_args_list[0].args[0]
+    await _close_to_end(cover)
+    await _until(lambda: cover.calibration == "medindo abertura")
+    cover.apply_outputs(0b01)
     with pytest.raises(HomeAssistantError):
         await cover.async_open_cover()  # no moves while calibrating
     await cover.async_calibrate_mark()
     await _until(lambda: cover.window.async_stop.await_count == 1)
-    cover.apply_outputs(0)  # controller confirms the stop
-    await _until(lambda: cover.calibration is None)
-    cover.window.async_stop.assert_awaited()
-    cover.save.assert_called_once()
-    assert cover.window.travel_s == cover.save.call_args.args[0]
-    assert cover.current_cover_position == 100
-    assert "Calibração concluída" in cover.notify.call_args.args[0]
-
-
-async def test_wall_button_stop_also_ends_the_calibration(hass, calibrating):
-    cover = calibrating
-    await cover.async_calibrate()
-    await _until(lambda: cover.window.async_run.await_count == 1)
-    cover.apply_outputs(0b10)
     cover.apply_outputs(0)
-    await _until(lambda: cover.calibration == "abrindo")
-    cover.apply_outputs(0b01)
-    cover.apply_outputs(0)  # stopped by the wall button / limit switch
+    await _until(lambda: cover.calibration == "medindo fechamento")
+    assert cover.window.async_run.await_args.args[0] == -1
+    cover.apply_outputs(0b10)
+    cover.apply_outputs(0)  # wall button / limit switch ends the closing run
     await _until(lambda: cover.calibration is None)
     cover.save.assert_called_once()
+    travel_open, travel_close = cover.save.call_args.args
+    assert cover.window.travel_s == travel_open and cover.window.travel_close_s == travel_close
+    assert cover.current_cover_position == 0  # ends closed
+    assert "Calibração concluída" in cover.notify.call_args.args[0]
 
 
 async def test_run_cut_by_the_safety_timeout_is_not_saved(hass, calibrating):
     cover = calibrating
     with patch.object(SmartCloudAgeWindowCover, "_async_safety_timeout", AsyncMock(return_value=0.0)):
         await cover.async_calibrate()
-        await _until(lambda: cover.window.async_run.await_count == 1)
-        cover.apply_outputs(0b10)
-        cover.apply_outputs(0)
-        await _until(lambda: cover.calibration == "abrindo")
+        await _close_to_end(cover)
+        await _until(lambda: cover.calibration == "medindo abertura")
         cover.apply_outputs(0b01)
         cover.apply_outputs(0)
         await _until(lambda: cover.calibration is None)
@@ -565,7 +557,7 @@ def _calibration_button(hass, user_id):
 
     window = _window(hass)
     window.cover = Mock(async_calibrate=AsyncMock(), async_calibrate_mark=AsyncMock())
-    button = WindowCalibrationButton(window, mark=False)
+    button = WindowCalibrationButton(window, "calibrate")
     button.hass = hass
     button.entity_id = "button.janela_calibrar_curso"
     button.async_set_context(Context(user_id=user_id))
@@ -591,3 +583,50 @@ async def test_automation_without_user_can_calibrate(hass):
     button, cover = _calibration_button(hass, None)
     await button.async_press()
     cover.async_calibrate.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# Lost position and re-reference by a full run
+# ---------------------------------------------------------------------------
+
+
+async def test_controller_restart_while_moving_loses_the_position(hass, calibrating):
+    cover = calibrating
+    cover.tracker.set_position(50.0)
+    keepalive = '{"message": "KeepAlive", "uptime": %d, "Output": {"Outputs": %d}}'
+    await cover._message_received(SimpleNamespace(payload=keepalive % (1000, 0b01)))
+    assert cover.is_opening
+    await cover._message_received(SimpleNamespace(payload=keepalive % (3, 0)))  # power came back
+    assert cover.current_cover_position is None
+    assert cover.extra_state_attributes["position_known"] is False
+    assert "foi perdida" in cover.notify.call_args.args[0]
+    with pytest.raises(HomeAssistantError):
+        await cover.async_set_cover_position(position=40)
+
+
+async def test_controller_restart_while_stopped_keeps_the_position(hass, calibrating):
+    cover = calibrating
+    cover.tracker.set_position(50.0)
+    keepalive = '{"message": "KeepAlive", "uptime": %d, "Output": {"Outputs": 0}}'
+    await cover._message_received(SimpleNamespace(payload=keepalive % 1000))
+    await cover._message_received(SimpleNamespace(payload=keepalive % 3))
+    assert cover.current_cover_position == 50
+
+
+async def test_full_close_re_references_a_lost_position(hass, calibrating):
+    cover = calibrating
+    cover.tracker.set_position(None)
+    cover.tracker.travel_s = 0.001  # the run below lasts longer than the full travel
+    cover.apply_outputs(0b10)
+    await __import__("asyncio").sleep(0.01)
+    cover.apply_outputs(0)
+    assert cover.current_cover_position == 0
+
+
+def test_separate_open_and_close_times():
+    tracker = TravelTracker(30, 20, position=0.0)
+    tracker.update(1, 0.0)
+    assert tracker.position(15.0) == pytest.approx(50.0)  # opening uses 30 s
+    tracker.update(-1, 15.0)
+    assert tracker.position(20.0) == pytest.approx(25.0)  # closing uses 20 s
+    assert tracker.seconds_to(75.0, 20.0) == pytest.approx(15.0)  # back up: 50 % of 30 s

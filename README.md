@@ -404,30 +404,32 @@ O firmware cuida da segurança do motor e vale tanto para o botão quanto para o
 
 A integração só aciona as saídas da janela (comando 11). Para inverter o sentido, ela primeiro para o motor e espera o tempo morto.
 
-O estado **abrindo / fechando / parada** é o real, vindo das saídas que a controladora publica. A **posição** é estimada pelo tempo de curso informado. Ela fica conhecida depois de abrir ou fechar até o fim uma vez e é mantida entre reinícios do Home Assistant.
+O estado **abrindo / fechando / parada** é o real, vindo das saídas que a controladora publica. A **posição** é estimada pelos tempos de curso, separados para abrir e fechar, como nas covers por tempo do ESPHome, Shelly e Sonoff. A posição é mantida entre reinícios do Home Assistant.
+
+**Sem desvio acumulado:** abrir ou fechar até o fim, pelo painel ou pelo botão de parede, deixa o motor andar até a controladora parar (fim de curso ou tempo máximo). Esse curso completo corrige a posição sozinho.
+
+**Posição perdida:** se a controladora reiniciar (falta de energia) ou o Home Assistant reiniciar com o motor andando, a posição fica desconhecida e uma notificação explica o que fazer. Ir para uma posição fica bloqueado até um curso completo; abrir e fechar continuam funcionando.
 
 ### Adicione a janela
 
 1. Em **Configurações → Dispositivos e serviços → SmartCloudAge**, clique em **Configurar** na controladora.
 2. Escolha **Adicionar janela motorizada**.
-3. Informe o nome, o par de entradas, o tipo (janela, persiana, cortina…) e o **tempo de curso** (de totalmente fechada a totalmente aberta).
+3. Informe o nome, o par de entradas, o tipo (janela, persiana, cortina…) e os **tempos para abrir e para fechar**. Se não souber, deixe o padrão e use **Calibrar curso**.
 4. Em **Saídas da janela**, escolha uma opção:
    - **Ler da controladora**: usa o cenário já gravado (pelo SCA Command) e confere se as duas entradas estão como Janela elétrica, cada uma com a sua saída.
-   - **Configurar as entradas na controladora agora**: grava as duas entradas como Janela elétrica com as saídas informadas e tempo máximo = tempo de curso + 5 s. O debounce e a inversão que as entradas já tinham são mantidos.
+   - **Configurar as entradas na controladora agora**: grava as duas entradas como Janela elétrica com as saídas informadas e tempo máximo = maior tempo de curso + 5 s. O debounce e a inversão que as entradas já tinham são mantidos.
    - **Cadastrar sem consultar a controladora**: só registra, com as saídas informadas.
 
-### Calibre o tempo de curso
+### Calibre os tempos de curso
 
-A posição só fica certa se o tempo de curso for o real. No dispositivo da janela há dois botões de configuração:
+Como no Shelly, a calibração mede os dois sentidos. No dispositivo da janela há dois botões:
 
-1. **Calibrar curso**: a janela fecha até a controladora parar o motor (fim de curso ou tempo máximo) e fica em 0 %. Depois começa a abrir e o tempo passa a contar.
-2. **Fim do curso (janela aberta)**: toque quando a janela estiver totalmente aberta. Também vale apertar o botão de parede, que para o motor; com fim de curso instalado, a parada é automática.
+1. **Calibrar curso**: a janela fecha até a controladora parar o motor (0 %), depois **abre** medindo o tempo e por fim **fecha** medindo o tempo. Ela termina fechada.
+2. **Fim do curso**: toque quando a janela chegar ao fim, ao abrir e de novo ao fechar. Também vale apertar o botão de parede, que para o motor; com fim de curso instalado, a parada é automática.
 
-O tempo medido é salvo como tempo de curso e a janela fica em 100 %. Uma notificação mostra o resultado. **Parar** cancela a calibração sem mudar nada.
+Os tempos medidos são salvos e uma notificação mostra o resultado. **Parar** cancela a calibração sem mudar nada. Se o tempo máximo de segurança da controladora acabar antes do fim do curso, a medida é recusada: aumente o tempo do cenário Janela no SCA Command e calibre de novo.
 
-Só **administradores** do Home Assistant podem calibrar: o botão acionado por outro usuário é recusado como não autorizado. Automações e scripts, que não têm usuário, podem.
-
-Se o tempo máximo de segurança da controladora acabar antes de a janela abrir toda, a calibração é recusada: aumente o tempo do cenário Janela no SCA Command e calibre de novo.
+**Segurança:** ao iniciar, uma notificação pede para acompanhar visualmente, sem pessoas, animais ou objetos no caminho, e lembra que **Parar** interrompe na hora. No painel, ponha uma confirmação com esse aviso no botão (`tap_action.confirmation`). Só **administradores** do Home Assistant podem calibrar: o botão acionado por outro usuário é recusado como não autorizado. Automações e scripts, que não têm usuário, podem.
 
 ```yaml
 # Abrir até a metade

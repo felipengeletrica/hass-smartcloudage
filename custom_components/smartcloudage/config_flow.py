@@ -258,6 +258,18 @@ def window_schema(defaults=None):
                     mode=selector.NumberSelectorMode.BOX,
                 )
             ),
+            vol.Required(
+                "travel_time_close",
+                default=defaults.get("travel_time_close", defaults.get("travel_time", WINDOW_DEFAULT_TRAVEL_S)),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=WINDOW_MIN_TRAVEL_S,
+                    max=WINDOW_MAX_TRAVEL_S,
+                    step=1,
+                    unit_of_measurement="s",
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
             vol.Required("source", default=WINDOW_SOURCE_READ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=[WINDOW_SOURCE_READ, WINDOW_SOURCE_WRITE, WINDOW_SOURCE_MANUAL],
@@ -868,7 +880,8 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
                 masks = (output_mask(open_output), output_mask(close_output))
             else:
                 result, details, error = await self._async_window_outputs(
-                    source, open_input, open_output, close_output, travel
+                    source, open_input, open_output, close_output,
+                    max(travel, float(user_input.get("travel_time_close") or travel)),
                 )
                 if error:
                     errors["base"] = error
@@ -882,6 +895,7 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
                     "open_mask": masks[0],
                     "close_mask": masks[1],
                     "travel_time": travel,
+                    "travel_time_close": float(user_input.get("travel_time_close") or travel),
                     "device_class": user_input["device_class"],
                 }
                 if self._window_index is None:

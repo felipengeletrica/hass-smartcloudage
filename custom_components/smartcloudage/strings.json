@@ -179,17 +179,19 @@
           "name": "Nome",
           "open_input": "Entradas dos botões",
           "device_class": "Tipo",
-          "travel_time": "Tempo de curso (s)",
+          "travel_time": "Tempo para abrir (s)",
           "source": "Saídas da janela",
           "open_output": "Saída que abre",
-          "close_output": "Saída que fecha"
+          "close_output": "Saída que fecha",
+          "travel_time_close": "Tempo para fechar (s)"
         },
         "data_description": {
           "open_input": "Botões de parede ligados nas entradas: a primeira abre, a segunda fecha. Um toque com o motor andando para a janela.",
-          "travel_time": "Tempo que o motor leva de totalmente fechada a totalmente aberta. Serve para estimar a posição. Ao configurar as entradas na controladora, o tempo máximo de motor ligado fica em tempo de curso + 5 s.",
+          "travel_time": "Tempo de totalmente fechada a totalmente aberta; o botão Calibrar curso mede sozinho. Ao configurar as entradas na controladora, o tempo máximo de motor ligado fica no maior tempo + 5 s.",
           "source": "Ler da controladora: usa o cenário já gravado, por exemplo pelo SCA Command. Configurar agora: grava as duas entradas como Janela elétrica com as saídas abaixo. Sem consultar: só cadastra, com as saídas abaixo.",
           "open_output": "Usada ao configurar as entradas agora ou ao cadastrar sem consultar.",
-          "close_output": "Usada ao configurar as entradas agora ou ao cadastrar sem consultar."
+          "close_output": "Usada ao configurar as entradas agora ou ao cadastrar sem consultar.",
+          "travel_time_close": "Tempo de totalmente aberta a totalmente fechada (o motor costuma descer mais rápido do que sobe)."
         }
       },
       "edit_window": {
@@ -400,7 +402,7 @@
         "name": "Calibrar curso"
       },
       "window_calibrate_mark": {
-        "name": "Fim do curso (janela aberta)"
+        "name": "Fim do curso"
       }
     }
   },

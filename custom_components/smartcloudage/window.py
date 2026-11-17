@@ -127,6 +127,20 @@ def outputs_from_message(raw: str) -> int | None:
         return None
 
 
+def uptime_from_message(raw: str) -> int | None:
+    """Controller uptime (s) of a KeepAlive message, or None."""
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or data.get("message") != "KeepAlive":
+        return None
+    try:
+        return int(data["uptime"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 ## @brief Reads and writes the input scenarios of one controller (command 15).
 class ScenarioClient:
     """Serializes command-15 requests to one controller and waits for each response."""
@@ -246,20 +260,38 @@ async def async_configure_window(
 
 ## @brief Position estimate of a cover from its travel time.
 class TravelTracker:
-    """Estimates the position (0 closed .. 100 open) from how long the motor ran."""
+    """Estimates the position (0 closed .. 100 open) from how long the motor ran.
 
-    def __init__(self, travel_s: float, position: float | None = None) -> None:
-        self.travel_s = max(float(travel_s), 0.1)
+    Separate open and close travel times, as the time-based covers of ESPHome and
+    Shelly: a motor usually lifts slower than it lowers.
+    """
+
+    def __init__(self, travel_up: float, travel_down: float | None = None,
+                 position: float | None = None) -> None:
+        self.travel_up = max(float(travel_up), 0.1)
+        self.travel_down = max(float(travel_down if travel_down else travel_up), 0.1)
         self._position = position
         self.direction = 0  # 1 opening, -1 closing, 0 stopped
         self._start = 0.0
         self._start_position: float | None = position
 
+    @property
+    def travel_s(self) -> float:
+        """Open travel time (kept for callers that use a single time)."""
+        return self.travel_up
+
+    @travel_s.setter
+    def travel_s(self, value: float) -> None:
+        self.travel_up = self.travel_down = max(float(value), 0.001)
+
+    def _travel(self, direction: int) -> float:
+        return self.travel_up if direction > 0 else self.travel_down
+
     def position(self, now: float) -> float | None:
         """Estimated position at @p now, or None while unknown."""
         if self.direction == 0 or self._start_position is None:
             return self._position if self.direction == 0 else None
-        moved = (now - self._start) / self.travel_s * 100.0
+        moved = (now - self._start) / self._travel(self.direction) * 100.0
         return min(100.0, max(0.0, self._start_position + self.direction * moved))
 
     def set_position(self, position: float | None) -> None:
@@ -275,7 +307,7 @@ class TravelTracker:
         if self.direction != 0:
             elapsed = now - self._start
             if self._start_position is None:
-                if elapsed >= self.travel_s * FULL_RUN_RATIO:
+                if elapsed >= self._travel(self.direction) * FULL_RUN_RATIO:
                     self._position = 100.0 if self.direction > 0 else 0.0
             else:
                 self._position = self.position(now)
@@ -288,7 +320,7 @@ class TravelTracker:
         current = self.position(now)
         if current is None:
             return None
-        return abs(target - current) / 100.0 * self.travel_s
+        return abs(target - current) / 100.0 * self._travel(1 if target > current else -1)
 
 
 ## @brief One motorized window: configuration and commands to its outputs.
@@ -307,6 +339,7 @@ class Window:
         if not self.open_mask or not self.close_mask or self.open_mask & self.close_mask:
             raise ValueError("a window needs one distinct output per direction")
         self.travel_s = float(config.get("travel_time", DEFAULT_TRAVEL_S))
+        self.travel_close_s = float(config.get("travel_time_close") or self.travel_s)
         device_class = config.get("device_class", DEFAULT_DEVICE_CLASS)
         self.device_class = device_class if device_class in DEVICE_CLASSES else DEFAULT_DEVICE_CLASS
         ## Cover entity of this window (set by the cover platform), used by the calibration buttons.
