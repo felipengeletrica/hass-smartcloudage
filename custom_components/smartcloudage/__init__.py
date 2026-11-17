@@ -5,6 +5,7 @@ import json
 import logging
 
 from homeassistant.components import mqtt
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.event import async_track_time_interval
 
 from .air_conditioner import build_air_conditioners
@@ -61,6 +62,22 @@ async def async_setup_entry(hass, entry):
         "tv_remotes": tv_remotes,
         "windows": build_windows(hass, devices),
     }
+
+    # The controller device must exist before the platforms load: the A/Cs, TVs and
+    # windows link to it (via_device) when added, whatever platform finishes first.
+    registry = dr.async_get(hass)
+    for device in devices:
+        device_id = device.get("device_id")
+        if not device_id:
+            continue
+        alias = device.get("alias") or device_id
+        registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, device_id)},
+            name=f"SmartCloudAge {alias}",
+            manufacturer="SmartCloudAge",
+            model="MQTT Controller",
+        )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))

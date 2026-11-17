@@ -333,6 +333,7 @@ FORM = {
     "open_input": "1",
     "device_class": "shutter",
     "travel_time": 25,
+    "travel_time_close": 20,
     "source": "read",
     "open_output": 1,
     "close_output": 2,
