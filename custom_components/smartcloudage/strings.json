@@ -45,9 +45,12 @@
           "add_tv": "Adicionar TV (beta)",
           "edit_tv": "Editar TV",
           "delete_tv": "Excluir TV",
+          "add_window": "Adicionar janela motorizada",
+          "edit_window": "Editar janela",
+          "delete_window": "Excluir janela",
           "finish": "Salvar e concluir"
         },
-        "description": "Medidores de pulsos, aparelhos de ar-condicionado e TVs desta controladora."
+        "description": "Medidores de pulsos, aparelhos de ar-condicionado, TVs e janelas desta controladora."
       },
       "add_meter": {
         "title": "Adicionar medidor de pulsos",
@@ -168,6 +171,45 @@
         "data": {
           "confirm": "Confirmo a exclusão desta TV"
         }
+      },
+      "window": {
+        "title": "Janela motorizada",
+        "description": "A janela usa o cenário Janela elétrica do firmware da controladora {controller} (2.0.9b ou superior): um par de entradas, em que a ímpar abre e a par fecha, e uma saída por sentido. O firmware limita o tempo de motor ligado, nunca liga os dois sentidos juntos e respeita o fim de curso. O Home Assistant aciona as mesmas saídas, com as mesmas proteções do botão. A posição é estimada pelo tempo de curso e fica conhecida depois de abrir ou fechar até o fim uma vez.",
+        "data": {
+          "name": "Nome",
+          "open_input": "Entradas dos botões",
+          "device_class": "Tipo",
+          "travel_time": "Tempo de curso (s)",
+          "source": "Saídas da janela",
+          "open_output": "Saída que abre",
+          "close_output": "Saída que fecha"
+        },
+        "data_description": {
+          "open_input": "Botões de parede ligados nas entradas: a primeira abre, a segunda fecha. Um toque com o motor andando para a janela.",
+          "travel_time": "Tempo que o motor leva de totalmente fechada a totalmente aberta. Serve para estimar a posição. Ao configurar as entradas na controladora, o tempo máximo de motor ligado fica em tempo de curso + 5 s.",
+          "source": "Ler da controladora: usa o cenário já gravado, por exemplo pelo SCA Command. Configurar agora: grava as duas entradas como Janela elétrica com as saídas abaixo. Sem consultar: só cadastra, com as saídas abaixo.",
+          "open_output": "Usada ao configurar as entradas agora ou ao cadastrar sem consultar.",
+          "close_output": "Usada ao configurar as entradas agora ou ao cadastrar sem consultar."
+        }
+      },
+      "edit_window": {
+        "title": "Escolher janela",
+        "data": {
+          "window": "Janela"
+        }
+      },
+      "delete_window": {
+        "title": "Excluir janela",
+        "data": {
+          "window": "Janela"
+        }
+      },
+      "confirm_delete_window": {
+        "title": "Confirmar exclusão",
+        "description": "Excluir a janela {name}? O dispositivo e a entidade dela serão removidos. A configuração das entradas na controladora não muda.",
+        "data": {
+          "confirm": "Confirmo a exclusão desta janela"
+        }
       }
     },
     "error": {
@@ -176,12 +218,18 @@
       "name_required": "Informe um nome.",
       "firmware_no_segments": "O firmware desta controladora tem infravermelho, mas não envia os quadros de ar-condicionado. Atualize para 2.0.4e ou superior.",
       "firmware_no_ir": "O firmware desta controladora não tem o comando infravermelho (32). Atualize para 2.0.4e ou superior.",
-      "controller_no_response": "A controladora não respondeu em 5 segundos. Verifique se ela está ligada e conectada ao broker, ou marque Cadastrar sem verificar o firmware."
+      "controller_no_response": "A controladora não respondeu em 5 segundos. Verifique se ela está ligada e conectada ao broker, ou marque Cadastrar sem verificar o firmware.",
+      "window_not_configured": "As duas entradas do par não estão configuradas como Janela elétrica na controladora. Configure pelo SCA Command ou escolha Configurar as entradas na controladora agora.",
+      "window_bad_outputs": "O cenário de janela da controladora não tem uma saída para cada sentido, ou usa a mesma saída nos dois. Corrija pelo SCA Command ou configure as entradas agora.",
+      "window_same_output": "Escolha saídas diferentes para abrir e fechar.",
+      "window_inputs_in_use": "Este par de entradas já pertence a outra janela.",
+      "window_write_failed": "A controladora não confirmou a gravação dos cenários. Confira se o firmware é 2.0.9b ou superior."
     },
     "abort": {
       "no_meters_configured": "Não existem medidores cadastrados.",
       "no_acs_configured": "Não existem aparelhos de ar-condicionado cadastrados.",
-      "no_tvs_configured": "Não existem TVs cadastradas."
+      "no_tvs_configured": "Não existem TVs cadastradas.",
+      "no_windows_configured": "Não existem janelas cadastradas."
     }
   },
   "entity": {
@@ -347,6 +395,15 @@
       },
       "key_digit_9": {
         "name": "Tecla 9"
+      }
+    }
+  },
+  "selector": {
+    "window_source": {
+      "options": {
+        "read": "Ler da controladora (cenário já configurado)",
+        "write": "Configurar as entradas na controladora agora",
+        "manual": "Cadastrar sem consultar a controladora"
       }
     }
   }

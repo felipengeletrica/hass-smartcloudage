@@ -385,6 +385,46 @@ data:
 
 `remote.turn_on` e `remote.turn_off` usam as teclas **Ligar**/**Desligar** quando o modelo tem (Samsung, LG, Sony) e o **Liga/desliga** nos demais. Como o infravermelho não tem retorno, o estado ligado/desligado é o último enviado.
 
+## Janelas motorizadas
+
+Disponível a partir da 1.5.0-beta.1. Janela, persiana, cortina, toldo ou portão com motor de dois sentidos vira uma entidade **`cover`**, com abrir, fechar, parar e ir para uma posição.
+
+O controle é o cenário **Janela elétrica** do firmware (**2.0.9b** ou superior; fim de curso a partir da **2.0.10a**):
+
+- um par de entradas para os botões de parede: **IN 1 abre e IN 2 fecha** (IN 3/IN 4 e assim por diante);
+- uma saída por sentido, ligada à bobina da contatora daquele sentido.
+
+O firmware cuida da segurança do motor e vale tanto para o botão quanto para o Home Assistant:
+
+- tempo máximo de motor ligado;
+- os dois sentidos nunca ligam juntos;
+- 500 ms parado antes de inverter;
+- parada no fim de curso;
+- saídas desligadas depois de uma queda de energia.
+
+A integração só aciona as saídas da janela (comando 11). Para inverter o sentido, ela primeiro para o motor e espera o tempo morto.
+
+O estado **abrindo / fechando / parada** é o real, vindo das saídas que a controladora publica. A **posição** é estimada pelo tempo de curso informado. Ela fica conhecida depois de abrir ou fechar até o fim uma vez e é mantida entre reinícios do Home Assistant.
+
+### Adicione a janela
+
+1. Em **Configurações → Dispositivos e serviços → SmartCloudAge**, clique em **Configurar** na controladora.
+2. Escolha **Adicionar janela motorizada**.
+3. Informe o nome, o par de entradas, o tipo (janela, persiana, cortina…) e o **tempo de curso** (de totalmente fechada a totalmente aberta).
+4. Em **Saídas da janela**, escolha uma opção:
+   - **Ler da controladora**: usa o cenário já gravado (pelo SCA Command) e confere se as duas entradas estão como Janela elétrica, cada uma com a sua saída.
+   - **Configurar as entradas na controladora agora**: grava as duas entradas como Janela elétrica com as saídas informadas e tempo máximo = tempo de curso + 5 s. O debounce e a inversão que as entradas já tinham são mantidos.
+   - **Cadastrar sem consultar a controladora**: só registra, com as saídas informadas.
+
+```yaml
+# Abrir até a metade
+action: cover.set_cover_position
+target:
+  entity_id: cover.janela_da_sala
+data:
+  position: 50
+```
+
 ## Exemplo de painel
 
 ```yaml

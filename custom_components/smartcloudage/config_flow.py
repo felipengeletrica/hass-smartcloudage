@@ -23,6 +23,24 @@ from .air_conditioner import (
 from .hvac import PROTOCOLS, brand_name, get_protocol
 from .tv_codes import PRESETS as TV_PRESETS
 from .tv_remote import DEFAULT_PRESET as TV_DEFAULT_PRESET, tv_preset
+from .window import (
+    DEFAULT_DEVICE_CLASS as WINDOW_DEFAULT_CLASS,
+    DEFAULT_TRAVEL_S as WINDOW_DEFAULT_TRAVEL_S,
+    DEVICE_CLASSES as WINDOW_CLASSES,
+    MAX_TRAVEL_S as WINDOW_MAX_TRAVEL_S,
+    MIN_TRAVEL_S as WINDOW_MIN_TRAVEL_S,
+    NUMBER_INPUTS,
+    NUMBER_OUTPUTS,
+    WINDOW_BAD_OUTPUTS,
+    WINDOW_NO_RESPONSE,
+    WINDOW_NOT_CONFIGURED,
+    WINDOW_OK,
+    ScenarioClient,
+    async_configure_window,
+    async_probe_window,
+    mask_outputs,
+    output_mask,
+)
 
 DOMAIN = "smartcloudage"
 ## Form error for each firmware probe result that blocks the registration.
@@ -31,6 +49,16 @@ FIRMWARE_ERRORS = {
     IR_UNSUPPORTED: "firmware_no_ir",
     IR_NO_RESPONSE: "controller_no_response",
 }
+## Form error for each window probe result that blocks the registration.
+WINDOW_ERRORS = {
+    WINDOW_NOT_CONFIGURED: "window_not_configured",
+    WINDOW_BAD_OUTPUTS: "window_bad_outputs",
+    WINDOW_NO_RESPONSE: "controller_no_response",
+}
+## How the outputs of a window are found.
+WINDOW_SOURCE_READ = "read"  # read the WINDOW scenarios already on the controller
+WINDOW_SOURCE_WRITE = "write"  # write the WINDOW scenarios now
+WINDOW_SOURCE_MANUAL = "manual"  # outputs typed in, controller not queried
 METER_TYPES = {
     "water": "Água",
     "gas": "Gás",
@@ -185,6 +213,68 @@ def tv_schema(defaults=None):
     )
 
 
+## @brief Builds the form of a motorized window (WINDOW scenario pair).
+#  @param defaults Optional initial values of the window.
+#  @return Voluptuous schema with name, input pair, type, travel time and outputs.
+def window_schema(defaults=None):
+    """Build the window form."""
+    defaults = defaults or {}
+    open_outputs = mask_outputs(int(defaults.get("open_mask", 0)))
+    close_outputs = mask_outputs(int(defaults.get("close_mask", 0)))
+    numbers = selector.NumberSelectorConfig(min=1, max=NUMBER_OUTPUTS, step=1, mode=selector.NumberSelectorMode.BOX)
+    return vol.Schema(
+        {
+            vol.Required("name", default=defaults.get("name", "")): str,
+            vol.Required("open_input", default=str(defaults.get("open_input", 1))): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(
+                            value=str(i), label=f"IN {i} abre / IN {i + 1} fecha"
+                        )
+                        for i in range(1, NUMBER_INPUTS, 2)
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required(
+                "device_class", default=defaults.get("device_class", WINDOW_DEFAULT_CLASS)
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(value=key, label=label)
+                        for key, label in WINDOW_CLASSES.items()
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required(
+                "travel_time", default=defaults.get("travel_time", WINDOW_DEFAULT_TRAVEL_S)
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=WINDOW_MIN_TRAVEL_S,
+                    max=WINDOW_MAX_TRAVEL_S,
+                    step=1,
+                    unit_of_measurement="s",
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Required("source", default=WINDOW_SOURCE_READ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[WINDOW_SOURCE_READ, WINDOW_SOURCE_WRITE, WINDOW_SOURCE_MANUAL],
+                    translation_key="window_source",
+                    mode=selector.SelectSelectorMode.LIST,
+                )
+            ),
+            vol.Required(
+                "open_output", default=open_outputs[0] if open_outputs else 1
+            ): selector.NumberSelector(numbers),
+            vol.Required(
+                "close_output", default=close_outputs[0] if close_outputs else 2
+            ): selector.NumberSelector(numbers),
+        }
+    )
+
+
 ## @brief Builds the remote-model form of a brand with more than one protocol variant.
 #  @param brand Selected brand value.
 #  @param default Model shown first.
@@ -289,6 +379,7 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
         self._ac_index = None
         self._ac_draft = None
         self._tv_index = None
+        self._window_index = None
 
     ## @brief Displays the available meter-management operations.
     #  @param user_input Menu input supplied by Home Assistant.
@@ -305,6 +396,7 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
                         dict(unit) for unit in device.get("air_conditioners", [])
                     ],
                     "tv_remotes": [dict(tv) for tv in device.get("tv_remotes", [])],
+                    "windows": [dict(window) for window in device.get("windows", [])],
                 }
                 for device in source.get("devices", [])
             ]
@@ -320,6 +412,9 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
                 "add_tv",
                 "edit_tv",
                 "delete_tv",
+                "add_window",
+                "edit_window",
+                "delete_window",
                 "finish",
             ],
         )
@@ -710,6 +805,156 @@ class SmartCloudAgeOptionsFlow(config_entries.OptionsFlow):
             step_id="confirm_delete_tv",
             data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
             description_placeholders={"name": tv["name"]},
+        )
+
+    # ------------------------------------------------------------------
+    # Motorized windows (WINDOW scenario pair)
+    # ------------------------------------------------------------------
+
+    ## @brief Builds labels for the configured windows.
+    def _window_choices(self):
+        """Return configured windows as selector choices."""
+        return {
+            index: f"{window['name']} — IN {window['open_input']} / IN {int(window['open_input']) + 1}"
+            for index, window in enumerate(self._devices[0].get("windows", []))
+        }
+
+    ## @brief Starts the form for a new window.
+    async def async_step_add_window(self, user_input=None):
+        """Add a motorized window."""
+        self._window_index = None
+        return await self.async_step_window()
+
+    ## @brief Lets the user select a configured window for editing.
+    async def async_step_edit_window(self, user_input=None):
+        """Choose an existing window to edit."""
+        if not self._devices[0].get("windows"):
+            return self.async_abort(reason="no_windows_configured")
+        if user_input is not None:
+            self._window_index = int(user_input["window"])
+            return await self.async_step_window()
+        return self.async_show_form(
+            step_id="edit_window",
+            data_schema=vol.Schema({vol.Required("window"): vol.In(self._window_choices())}),
+        )
+
+    ## @brief Collects a window and finds its outputs (read, write or typed in).
+    #  @param user_input Submitted values, or @c None on first display.
+    #  @return Window form or completed options entry.
+    async def async_step_window(self, user_input=None):
+        """Configure a motorized window."""
+        windows = self._devices[0].setdefault("windows", [])
+        current = windows[self._window_index] if self._window_index is not None else {}
+        errors = {}
+        if user_input is not None:
+            open_input = int(user_input["open_input"])
+            open_output = int(user_input["open_output"])
+            close_output = int(user_input["close_output"])
+            travel = float(user_input["travel_time"])
+            source = user_input["source"]
+            taken = {
+                int(w["open_input"])
+                for i, w in enumerate(windows)
+                if i != self._window_index
+            }
+            masks = None
+            if not user_input["name"].strip():
+                errors["name"] = "name_required"
+            elif open_input in taken:
+                errors["open_input"] = "window_inputs_in_use"
+            elif source != WINDOW_SOURCE_READ and open_output == close_output:
+                errors["base"] = "window_same_output"
+            elif source == WINDOW_SOURCE_MANUAL:
+                masks = (output_mask(open_output), output_mask(close_output))
+            else:
+                result, details, error = await self._async_window_outputs(
+                    source, open_input, open_output, close_output, travel
+                )
+                if error:
+                    errors["base"] = error
+                else:
+                    masks = (details["open_mask"], details["close_mask"])
+            if not errors and masks is not None:
+                window = {
+                    "id": current.get("id") or uuid.uuid4().hex[:8],
+                    "name": user_input["name"].strip(),
+                    "open_input": open_input,
+                    "open_mask": masks[0],
+                    "close_mask": masks[1],
+                    "travel_time": travel,
+                    "device_class": user_input["device_class"],
+                }
+                if self._window_index is None:
+                    windows.append(window)
+                else:
+                    windows[self._window_index] = window
+                self._window_index = None
+                return self._save_options()
+        return self.async_show_form(
+            step_id="window",
+            data_schema=self.add_suggested_values_to_schema(window_schema(current), user_input)
+            if user_input
+            else window_schema(current),
+            errors=errors,
+            description_placeholders={"controller": self._devices[0].get("alias") or ""},
+        )
+
+    ## @brief Reads (or writes, then reads back) the WINDOW scenarios of an input pair.
+    #  @return (result, details, form error or None).
+    async def _async_window_outputs(self, source, open_input, open_output, close_output, travel):
+        client = ScenarioClient(self.hass, self._devices[0].get("device_id"))
+        try:
+            if source == WINDOW_SOURCE_WRITE:
+                # Keep the debounce and invert the inputs already have.
+                previous = []
+                for index in (open_input, open_input + 1):
+                    answered, scenario = await client.async_read(index)
+                    if not answered:
+                        return WINDOW_NO_RESPONSE, {}, WINDOW_ERRORS[WINDOW_NO_RESPONSE]
+                    previous.append(scenario or {})
+                if not await async_configure_window(
+                    client, open_input, open_output, close_output, travel, previous
+                ):
+                    return WINDOW_NO_RESPONSE, {}, "window_write_failed"
+            # Read back: what counts is what the controller has stored.
+            result, details = await async_probe_window(client, open_input)
+            if result != WINDOW_OK:
+                return result, {}, WINDOW_ERRORS[result]
+            return result, details, None
+        finally:
+            client.async_stop()
+
+    ## @brief Lets the user choose a configured window for deletion.
+    async def async_step_delete_window(self, user_input=None):
+        """Choose an existing window to delete."""
+        if not self._devices[0].get("windows"):
+            return self.async_abort(reason="no_windows_configured")
+        if user_input is not None:
+            self._window_index = int(user_input["window"])
+            return await self.async_step_confirm_delete_window()
+        return self.async_show_form(
+            step_id="delete_window",
+            data_schema=vol.Schema({vol.Required("window"): vol.In(self._window_choices())}),
+        )
+
+    ## @brief Confirms deletion and removes the window device.
+    #  The scenarios on the controller are left as they are.
+    async def async_step_confirm_delete_window(self, user_input=None):
+        """Confirm and delete the selected window."""
+        windows = self._devices[0]["windows"]
+        window = windows[self._window_index]
+        if user_input is not None and user_input["confirm"]:
+            device_id = self._devices[0].get("device_id")
+            device = find_device(self.hass, self.config_entry.entry_id, f"{device_id}_window_{window['id']}")
+            if device is not None:
+                dr.async_get(self.hass).async_remove_device(device.id)
+            windows.pop(self._window_index)
+            self._window_index = None
+            return self._save_options()
+        return self.async_show_form(
+            step_id="confirm_delete_window",
+            data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
+            description_placeholders={"name": window["name"]},
         )
 
     ## @brief Closes the options flow without changing the working data.

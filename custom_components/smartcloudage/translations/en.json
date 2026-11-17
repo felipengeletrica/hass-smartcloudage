@@ -45,9 +45,12 @@
           "add_tv": "Add TV (beta)",
           "edit_tv": "Edit TV",
           "delete_tv": "Delete TV",
+          "add_window": "Add motorized window",
+          "edit_window": "Edit window",
+          "delete_window": "Delete window",
           "finish": "Save and finish"
         },
-        "description": "Pulse meters, air conditioners and TVs of this controller."
+        "description": "Pulse meters, air conditioners, TVs and windows of this controller."
       },
       "add_meter": {
         "title": "Add pulse meter",
@@ -168,6 +171,45 @@
         "data": {
           "confirm": "I confirm deleting this TV"
         }
+      },
+      "window": {
+        "title": "Motorized window",
+        "description": "The window uses the Electric window scenario of the {controller} controller firmware (2.0.9b or later): a pair of inputs, the odd one opens and the even one closes, and one output per direction. The firmware limits the motor run time, never runs both directions together and honors the limit switch. Home Assistant drives the same outputs, with the same protections as the wall buttons. The position is estimated from the travel time and becomes known after one full open or close.",
+        "data": {
+          "name": "Name",
+          "open_input": "Button inputs",
+          "device_class": "Type",
+          "travel_time": "Travel time (s)",
+          "source": "Window outputs",
+          "open_output": "Output that opens",
+          "close_output": "Output that closes"
+        },
+        "data_description": {
+          "open_input": "Wall buttons wired to the inputs: the first opens, the second closes. A press while the motor runs stops it.",
+          "travel_time": "Time the motor takes from fully closed to fully open. Used to estimate the position. When the inputs are configured on the controller, the maximum motor run time is the travel time + 5 s.",
+          "source": "Read from the controller: use the scenario already stored, e.g. by SCA Command. Configure now: write both inputs as Electric window with the outputs below. Without querying: just register, with the outputs below.",
+          "open_output": "Used when configuring the inputs now or when registering without querying.",
+          "close_output": "Used when configuring the inputs now or when registering without querying."
+        }
+      },
+      "edit_window": {
+        "title": "Choose window",
+        "data": {
+          "window": "Window"
+        }
+      },
+      "delete_window": {
+        "title": "Delete window",
+        "data": {
+          "window": "Window"
+        }
+      },
+      "confirm_delete_window": {
+        "title": "Confirm deletion",
+        "description": "Delete the window {name}? Its device and entity will be removed. The input configuration on the controller does not change.",
+        "data": {
+          "confirm": "I confirm deleting this window"
+        }
       }
     },
     "error": {
@@ -176,12 +218,18 @@
       "name_required": "Enter a name.",
       "firmware_no_segments": "This controller's firmware has infrared but cannot send air conditioner frames. Update to 2.0.4e or later.",
       "firmware_no_ir": "This controller's firmware has no infrared command (32). Update to 2.0.4e or later.",
-      "controller_no_response": "The controller did not answer within 5 seconds. Check that it is on and connected to the broker, or tick Register without checking the firmware."
+      "controller_no_response": "The controller did not answer within 5 seconds. Check that it is on and connected to the broker, or tick Register without checking the firmware.",
+      "window_not_configured": "The two inputs of the pair are not configured as Electric window on the controller. Configure them with SCA Command or choose Configure the inputs on the controller now.",
+      "window_bad_outputs": "The window scenario on the controller does not have one output per direction, or uses the same output for both. Fix it with SCA Command or configure the inputs now.",
+      "window_same_output": "Choose different outputs to open and to close.",
+      "window_inputs_in_use": "This input pair already belongs to another window.",
+      "window_write_failed": "The controller did not confirm saving the scenarios. Check that the firmware is 2.0.9b or later."
     },
     "abort": {
       "no_meters_configured": "There are no configured meters.",
       "no_acs_configured": "No air conditioners are configured.",
-      "no_tvs_configured": "There are no TVs configured."
+      "no_tvs_configured": "There are no TVs configured.",
+      "no_windows_configured": "There are no windows configured."
     }
   },
   "entity": {
@@ -347,6 +395,15 @@
       },
       "key_digit_9": {
         "name": "Key 9"
+      }
+    }
+  },
+  "selector": {
+    "window_source": {
+      "options": {
+        "read": "Read from the controller (scenario already configured)",
+        "write": "Configure the inputs on the controller now",
+        "manual": "Register without querying the controller"
       }
     }
   }

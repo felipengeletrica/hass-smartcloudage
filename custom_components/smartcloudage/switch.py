@@ -7,6 +7,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .air_conditioner import is_ir_response
+from .window import is_scenario_response
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 return
 
             raw = msg.payload.decode("utf-8") if isinstance(msg.payload, bytes) else msg.payload
-            if is_ir_response(raw):
+            if is_ir_response(raw) or is_scenario_response(raw):
                 return
             data = json.loads(raw)
 

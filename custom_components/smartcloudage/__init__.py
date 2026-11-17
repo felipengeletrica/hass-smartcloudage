@@ -9,9 +9,10 @@ from homeassistant.helpers.event import async_track_time_interval
 
 from .air_conditioner import build_air_conditioners
 from .tv_remote import build_tv_remotes
+from .window import build_windows
 
 DOMAIN = "smartcloudage"
-PLATFORMS = ["switch", "sensor", "climate", "remote", "button"]
+PLATFORMS = ["switch", "sensor", "climate", "remote", "button", "cover"]
 SYNC_RTC_INTERVAL = 5
 CONFIG_DATE_TIME_ENUM = 9
 WRITE = 1
@@ -58,6 +59,7 @@ async def async_setup_entry(hass, entry):
         "ir_senders": senders,
         "air_conditioners": air_conditioners,
         "tv_remotes": tv_remotes,
+        "windows": build_windows(hass, devices),
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
